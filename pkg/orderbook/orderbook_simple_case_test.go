@@ -7,7 +7,7 @@ import (
 )
 
 func TestSimpleMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 1 {
 			t.Fatalf("expected 1 match, got %d", len(results))
@@ -33,7 +33,7 @@ func TestSimpleMatch(t *testing.T) {
 }
 
 func TestNoMatchDueToPrice(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		// if there is callback called -> there is trade match -> test failed
 		t.Fatalf("expected no match, got %d", len(results))
@@ -48,7 +48,7 @@ func TestNoMatchDueToPrice(t *testing.T) {
 }
 
 func TestPartialMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 1 {
 			t.Fatalf("expected 1 match, got %d", len(results))
@@ -67,7 +67,7 @@ func TestPartialMatch(t *testing.T) {
 }
 
 func TestFIFOMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 2 {
 			t.Fatalf("expected 2 matches, got %d", len(results))
@@ -90,7 +90,7 @@ func TestFIFOMatch(t *testing.T) {
 }
 
 func TestMultiLevelMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 3 {
 			t.Fatalf("expected 3 matches, got %d", len(results))
@@ -117,7 +117,7 @@ func TestMultiLevelMatch(t *testing.T) {
 }
 
 func TestHighVolumeOrders(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	trade := 0
 	cb := func(results []MatchResult) {
 		trade += 1
@@ -146,7 +146,7 @@ func TestHighVolumeOrders(t *testing.T) {
 }
 
 func TestConcurrentOrders(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 
 	var wg sync.WaitGroup
 	addOrder := func(id int, side Side) {
@@ -172,7 +172,7 @@ func TestConcurrentOrders(t *testing.T) {
 }
 
 func BenchmarkOrderBookMatch(b *testing.B) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 
 	// Pre-load SELL lệnh
 	for i := 0; i < 10_000; i++ {

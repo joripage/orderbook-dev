@@ -6,7 +6,7 @@ import (
 )
 
 func TestLimitOrderMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 1 || results[0].Qty != 10 {
 			t.Errorf("Expected 1 match of 10 units, got %+v", results)
@@ -19,7 +19,7 @@ func TestLimitOrderMatch(t *testing.T) {
 }
 
 func TestMarketOrderFullMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 1 || results[0].Qty != 10 {
 			t.Errorf("Expected full market match, got %+v", results)
@@ -32,7 +32,7 @@ func TestMarketOrderFullMatch(t *testing.T) {
 }
 
 func TestIOCPartialMatch(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 1 || results[0].Qty != 5 {
 			t.Errorf("Expected partial IOC match of 5 units, got %+v", results)
@@ -45,7 +45,7 @@ func TestIOCPartialMatch(t *testing.T) {
 }
 
 func TestFOKRejectPartial(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	cb := func(results []MatchResult) {
 		if len(results) != 0 {
 			t.Errorf("FOK should reject partial fill, got %+v", results)
@@ -58,7 +58,7 @@ func TestFOKRejectPartial(t *testing.T) {
 }
 
 func TestIcebergOrderSlices(t *testing.T) {
-	ob := newOrderBook()
+	ob := newOrderBook("test")
 	totalMatch := 0
 	cb := func(results []MatchResult) {
 		for _, result := range results {
