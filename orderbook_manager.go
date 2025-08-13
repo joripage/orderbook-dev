@@ -1,0 +1,59 @@
+package orderbook
+
+import (
+	"sync"
+	"time"
+)
+
+type OrderBookManagerConfig struct {
+	EnableIceberg bool
+}
+
+type OrderBookManager struct {
+	books     sync.Map
+	callbacks []func([]MatchResult)
+	cfg       *OrderBookManagerConfig
+}
+
+func NewOrderBookManager(cfg *OrderBookManagerConfig) *OrderBookManager {
+	return &OrderBookManager{
+		books: sync.Map{},
+		cfg:   cfg,
+	}
+}
+
+func (s *OrderBookManager) AddOrder(order *Order) {
+	book := s.getOrCreateBook(order.Symbol)
+	book.addOrder(order)
+}
+
+func (s *OrderBookManager) RegisterTradeCallback(cb func([]MatchResult)) {
+	s.callbacks = append(s.callbacks, cb)
+
+	// apply callback to all books
+	s.books.Range(func(_, v any) bool {
+		book := v.(*orderBook)
+		book.registerTradeCallback(cb)
+		return true
+	})
+}
+
+func (s *OrderBookManager) getOrCreateBook(symbol string) *orderBook {
+	if val, ok := s.books.Load(symbol); ok {
+		return val.(*orderBook)
+	}
+
+	book := newOrderBook(symbol)
+	for _, cb := range s.callbacks {
+		book.registerTradeCallback(cb)
+	}
+
+	if s.cfg.EnableIceberg {
+		im := newIcebergManager(book, time.Millisecond*1)
+		book.setIcebergManager(im)
+		im.startScheduler()
+	}
+
+	actual, _ := s.books.LoadOrStore(symbol, book)
+	return actual.(*orderBook)
+}
