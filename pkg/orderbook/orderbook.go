@@ -34,6 +34,8 @@ type orderBook struct {
 	buyHeap  *PriceHeap
 	sellHeap *PriceHeap
 
+	ordersByID map[string]*Order
+
 	icebergMgr icebergHandler
 
 	callbacks []func([]MatchResult)
@@ -55,6 +57,8 @@ func newOrderBook(symbol string) *orderBook {
 		sellOrders: make(map[float64]*deque.Deque[*Order]),
 		buyHeap:    buyHeap,
 		sellHeap:   sellHeap,
+
+		ordersByID: make(map[string]*Order),
 	}
 
 	return ob
@@ -84,6 +88,77 @@ func (ob *orderBook) addOrder(order *Order) {
 			cb(results)
 		}
 	}
+}
+
+func (ob *orderBook) cancelOrder(orderID string) bool {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	order, ok := ob.ordersByID[orderID]
+	if !ok {
+		return false
+	}
+
+	var book map[float64]*deque.Deque[*Order]
+	var heapRef *PriceHeap
+	if order.Side == BUY {
+		book = ob.buyOrders
+		heapRef = ob.buyHeap
+	} else {
+		book = ob.sellOrders
+		heapRef = ob.sellHeap
+	}
+
+	q := book[order.Price]
+	if q == nil {
+		return false
+	}
+
+	for i := 0; i < q.Len(); i++ {
+		if q.At(i).ID == orderID {
+			q.Remove(i)
+			break
+		}
+	}
+
+	// if price level empty -> delete
+	if q.Len() == 0 {
+		delete(book, order.Price)
+		heapRef.Remove(order.Price)
+	}
+
+	delete(ob.ordersByID, orderID)
+	return true
+}
+
+func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64) bool {
+	ob.mu.Lock()
+
+	order, ok := ob.ordersByID[orderID]
+	if !ok {
+		return false
+	}
+
+	if order.Price == newPrice && newQty < order.Qty {
+		order.Qty = newQty
+		return true
+	}
+	ob.mu.Unlock()
+
+	// if quantity increased or price changed -> cancel then add new
+	ob.cancelOrder(orderID)
+	newOrder := &Order{
+		ID:          order.ID,
+		Symbol:      order.Symbol,
+		Side:        order.Side,
+		Price:       newPrice,
+		Qty:         newQty,
+		Type:        order.Type,
+		TimeInForce: order.TimeInForce,
+	}
+	ob.addOrder(newOrder)
+
+	return true
 }
 
 func (ob *orderBook) registerTradeCallback(fn func(result []MatchResult)) {
@@ -189,24 +264,6 @@ func (ob *orderBook) matchOrder(
 		order.Qty -= matchQty
 		best.Qty -= matchQty
 
-		// if side == BUY {
-		// 	results = append(results, MatchResult{
-		// 		OrderID:        order.ID,
-		// 		CounterOrderID: best.ID,
-		// 		Price:          bestPrice,
-		// 		Qty:            matchQty,
-		// 		Side:           BUY,
-		// 	})
-		// } else {
-		// 	results = append(results, MatchResult{
-		// 		OrderID:        order.ID,
-		// 		CounterOrderID: best.ID,
-		// 		Price:          bestPrice,
-		// 		Qty:            matchQty,
-		// 		Side:           SELL,
-		// 	})
-		// }
-
 		// bestID come first, then orderID come after that -> orderID = bestID, counterID = orderID, side = side before
 		results = append(results, MatchResult{
 			OrderID:        best.ID,
@@ -237,4 +294,5 @@ func (ob *orderBook) addToBook(book map[float64]*deque.Deque[*Order], priceHeap 
 		heap.Push(priceHeap, order.Price)
 	}
 	book[order.Price].PushBack(order)
+	ob.ordersByID[order.ID] = order
 }

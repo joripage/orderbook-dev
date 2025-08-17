@@ -1,5 +1,7 @@
 package orderbook
 
+import "container/heap"
+
 // PriceHeap implements heap.Interface
 type PriceHeap struct {
 	prices []float64
@@ -48,4 +50,15 @@ func (h *PriceHeap) Peek() (float64, bool) {
 		return 0, false
 	}
 	return h.prices[0], true
+}
+
+func (h *PriceHeap) Remove(price float64) {
+	for i := range h.prices {
+		if h.prices[i] == price {
+			h.prices = append(h.prices[:i], h.prices[i+1:]...)
+			delete(h.index, price)
+			heap.Init(h) // rebuild heap
+			return
+		}
+	}
 }
