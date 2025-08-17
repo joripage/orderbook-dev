@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
+	riskrule "github.com/joripage/orderbook-dev/pkg/oms/risk_rule"
 	"github.com/joripage/orderbook-dev/pkg/orderbook"
 )
 
@@ -14,7 +15,7 @@ type OMS struct {
 	orderbookManager *orderbook.OrderBookManager
 
 	orderMapping sync.Map
-	rules        []RiskRule
+	rules        []riskrule.RiskRule
 }
 
 var totalMatchQty int64 = 0
@@ -68,6 +69,7 @@ func (s *OMS) Start(ctx context.Context) {
 }
 
 func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) {
+	// todo: check riskrule
 	order := &model.Order{}
 	order.UpdateAddOrder(addOrder)
 	s.AddOrderToMap(order)
@@ -90,5 +92,6 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) {
 }
 
 func (s *OMS) CancelOrder(ctx context.Context, orderID string) {
+	// todo: check riskrule
 
 }
