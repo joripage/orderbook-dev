@@ -14,6 +14,7 @@ type OMS struct {
 	orderbookManager *orderbook.OrderBookManager
 
 	orderMapping sync.Map
+	rules        []RiskRule
 }
 
 var totalMatchQty int64 = 0
