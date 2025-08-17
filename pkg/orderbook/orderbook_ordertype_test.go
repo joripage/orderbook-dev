@@ -59,7 +59,7 @@ func TestFOKRejectPartial(t *testing.T) {
 
 func TestIcebergOrderSlices(t *testing.T) {
 	ob := newOrderBook("test")
-	totalMatch := 0
+	totalMatch := int64(0)
 	cb := func(results []MatchResult) {
 		for _, result := range results {
 			totalMatch += result.Qty

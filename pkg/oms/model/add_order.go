@@ -7,6 +7,7 @@ import (
 )
 
 type AddOrder struct {
+	ID           string
 	Account      string
 	Symbol       string
 	Type         OrderType

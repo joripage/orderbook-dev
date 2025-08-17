@@ -29,9 +29,9 @@ type Order struct {
 	Symbol      string
 	Side        Side
 	Price       float64
-	Qty         int
+	Qty         int64
 	Type        OrderType
 	TimeInForce TimeInForce // IOC, FOK, GTC, etc.
-	VisibleQty  int         // for Iceberg: public visible quantity
-	hiddenQty   int         // for Iceberg: internal qty
+	VisibleQty  int64       // for Iceberg: public visible quantity
+	hiddenQty   int64       // for Iceberg: internal qty
 }

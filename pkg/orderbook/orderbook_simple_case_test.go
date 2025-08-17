@@ -14,7 +14,7 @@ func TestSimpleMatch(t *testing.T) {
 		}
 
 		match := results[0]
-		if match.BuyOrderID != "B1" || match.SellOrderID != "S1" {
+		if match.OrderID != "S1" || match.CounterOrderID != "B1" {
 			t.Errorf("incorrect order IDs in match: %+v", match)
 		}
 		if match.Qty != 10 || match.Price != 99.0 {
@@ -72,7 +72,7 @@ func TestFIFOMatch(t *testing.T) {
 		if len(results) != 2 {
 			t.Fatalf("expected 2 matches, got %d", len(results))
 		}
-		if results[0].SellOrderID != "S1" || results[1].SellOrderID != "S2" {
+		if results[0].OrderID != "S1" || results[1].OrderID != "S2" {
 			t.Errorf("expected FIFO match order, got %+v", results)
 		}
 	}
@@ -124,7 +124,7 @@ func TestHighVolumeOrders(t *testing.T) {
 	}
 	ob.registerTradeCallback(cb)
 
-	num := 10_000
+	num := 1_000_000
 	for i := 0; i < num; i++ {
 		side := BUY
 		if i%2 == 0 {

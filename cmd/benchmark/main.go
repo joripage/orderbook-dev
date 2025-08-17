@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"oms-fix/pkg/orderbook"
+	"github.com/joripage/orderbook-dev/pkg/orderbook"
 )
 
 const (
@@ -23,7 +23,7 @@ func randomOrder(id int) *orderbook.Order {
 		side = orderbook.SELL
 	}
 	price := minPrice + rand.Float64()*(maxPrice-minPrice)
-	qty := rand.Intn(maxQty-minQty+1) + minQty
+	qty := int64(rand.Intn(maxQty-minQty+1) + minQty)
 
 	return &orderbook.Order{
 		ID:     fmt.Sprintf("ORD-%06d", id),
@@ -42,7 +42,7 @@ func main() {
 		EnableIceberg: true,
 	})
 	totalMatched := 0
-	totalQty := 0
+	totalQty := int64(0)
 	cb := func(results []orderbook.MatchResult) {
 		// fmt.Println("cb", results)
 		for _, r := range results {
@@ -51,7 +51,7 @@ func main() {
 			// In vài dòng đầu để kiểm tra
 			if totalMatched <= 5 {
 				log.Printf("✅ Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
-					r.BuyOrderID, r.SellOrderID, r.Price, r.Qty)
+					r.OrderID, r.CounterOrderID, r.Price, r.Qty)
 			}
 		}
 	}

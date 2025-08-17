@@ -1,0 +1,18 @@
+{
+  "go.useLanguageServer": true,
+  "go.formatTool": "goimports",
+  "go.languageServerExperimentalFeatures": {
+    "diagnostics": true // for diagnostics as you type
+  },
+  "go.alternateTools": {
+    "go-langserver": "gopls"
+  },
+  "[go]": {
+    "editor.snippetSuggestions": "inline",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "editor.foldingStrategy": "indentation"
+}

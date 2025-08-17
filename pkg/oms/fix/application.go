@@ -1,18 +1,14 @@
-package fixserver
+package fixmanager
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
-	"oms-fix/pkg/oms"
-	"oms-fix/pkg/oms/model"
-	"oms-fix/pkg/orderbook"
 	"os"
-	"time"
 
 	"github.com/joripage/go_util/pkg/shardqueue"
-	"github.com/quickfixgo/enum"
 	"github.com/quickfixgo/fix44/newordersingle"
 	"github.com/quickfixgo/fix44/ordercancelreplacerequest"
 	"github.com/quickfixgo/fix44/ordercancelrequest"
@@ -28,8 +24,8 @@ type Application struct {
 	quickEvent chan bool
 	dispatcher chan *inboundMsg
 	shardQueue *shardqueue.Shardqueue
-	// orderBookManager *orderbook.OrderBookManager
-	orderManager oms.OrderManager
+
+	fixManager *FixManager
 }
 
 type AppConfig struct {
@@ -47,14 +43,12 @@ const (
 	queueSize = 1_000_000
 )
 
-func newApplication(cfg AppConfig, obm *orderbook.OrderBookManager) *Application {
-	fm := oms.NewFixManager()
+func newApplication(cfg AppConfig, fixManger *FixManager) *Application {
 	app := &Application{
 		MessageRouter: quickfix.NewMessageRouter(),
-		// orderBookManager: obm,
-		orderManager: fm,
-		cfg:          cfg,
-		quickEvent:   make(chan bool, 1),
+		cfg:           cfg,
+		quickEvent:    make(chan bool, 1),
+		fixManager:    fixManger,
 	}
 
 	app.AddRoute(newordersingle.Route(app.onNewOrderSingle))
@@ -77,7 +71,7 @@ func newApplication(cfg AppConfig, obm *orderbook.OrderBookManager) *Application
 	return app
 }
 
-func startApp(config_filepath string, obm *orderbook.OrderBookManager) (*Application, error) {
+func startApp(config_filepath string, fixManager *FixManager) (*Application, error) {
 	var cfgFileName = config_filepath
 
 	cfg, err := os.Open(cfgFileName)
@@ -99,7 +93,8 @@ func startApp(config_filepath string, obm *orderbook.OrderBookManager) (*Applica
 	app := newApplication(AppConfig{
 		enableQueue: true,
 		// enableShardQueue: true,
-	}, obm)
+	}, fixManager)
+
 	logFactory, _ := file.NewLogFactory(appSettings)
 	acceptor, err := quickfix.NewAcceptor(app, quickfix.NewMemoryStoreFactory(), appSettings, logFactory)
 	if err != nil {
@@ -183,62 +178,51 @@ func (a *Application) runDispatcher() {
 }
 
 func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessionID quickfix.SessionID) quickfix.MessageRejectError {
+	senderCompID, _ := msg.GetSenderCompID()
+	senderSubID, _ := msg.GetSenderSubID()
+	targetCompID, _ := msg.GetTargetCompID()
+	onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
+	deliverToCompID, _ := msg.GetDeliverToCompID()
 
-	// clOrdID, _ := msg.GetClOrdID()
+	clOrdID, _ := msg.GetClOrdID()
 	symbol, _ := msg.GetSymbol()
 	side, _ := msg.GetSide()
 	ordType, _ := msg.GetOrdType()
 	price, _ := msg.GetPrice()
 	orderQty, _ := msg.GetOrderQty()
+	account, _ := msg.GetAccount()
+	accountType, _ := msg.GetAccountType()
 	timeInForce, _ := msg.GetTimeInForce()
+	transactTime, _ := msg.GetTransactTime()
+	maturityMonthYear, _ := msg.GetMaturityMonthYear()
+	securityType, _ := msg.GetSecurityType()
+	securityID, _ := msg.GetSecurityID()
 	maxFloor, _ := msg.GetMaxFloor()
 
-	obOrderType := map[enum.OrdType]model.OrderType{
-		enum.OrdType_LIMIT:  model.OrderTypeLimit,
-		enum.OrdType_MARKET: model.OrderTypeMarket,
-		//check iceberg
-	}[ordType]
-	// var visibleQty int
-	if maxFloor.IntPart() != 0 {
-		obOrderType = model.OrderTypeIceberg
-		// visibleQty = int(maxFloor.IntPart())
+	m := &NewOrderSingle{
+		SenderCompID:     senderCompID,
+		SenderSubID:      senderSubID,
+		TargetCompID:     targetCompID,
+		OnBehalfOfCompID: onBehalfOfCompID,
+		DeliverToCompID:  deliverToCompID,
+
+		Account:           account,
+		AccountType:       accountType,
+		ClOrdID:           clOrdID,
+		Symbol:            symbol,
+		OrdType:           ordType,
+		Price:             price,
+		TimeInForce:       timeInForce,
+		Side:              side,
+		TransactTime:      transactTime,
+		OrderQty:          orderQty,
+		MaturityMonthYear: maturityMonthYear,
+		SecurityType:      securityType,
+		SecurityID:        securityID,
+		MaxFloor:          maxFloor,
 	}
 
-	obTimeInForce := map[enum.TimeInForce]model.OrderTimeInForce{
-		enum.TimeInForce_DAY:                 model.OrderTimeInForceDAY,
-		enum.TimeInForce_FILL_OR_KILL:        model.OrderTimeInForceFOK,
-		enum.TimeInForce_GOOD_TILL_CANCEL:    model.OrderTimeInForceGTC,
-		enum.TimeInForce_IMMEDIATE_OR_CANCEL: model.OrderTimeInForceIOC,
-	}[timeInForce]
-
-	obSide := map[enum.Side]model.OrderSide{
-		enum.Side_BUY:  model.OrderSideBuy,
-		enum.Side_SELL: model.OrderSideSell,
-	}[side]
-
-	// a.orderBookManager.AddOrder(&orderbook.Order{
-	// 	ID:     clOrdID,
-	// 	Symbol: symbol,
-	// 	Side: map[enum.Side]orderbook.Side{
-	// 		enum.Side_BUY:  orderbook.BUY,
-	// 		enum.Side_SELL: orderbook.SELL,
-	// 	}[side],
-	// 	Price:       price.InexactFloat64(),
-	// 	Qty:         int(orderQty.IntPart()),
-	// 	Type:        obOrderType,
-	// 	TimeInForce: obTimeInForce,
-	// 	VisibleQty:  visibleQty,
-	// })
-	a.orderManager.AddOrder(&model.AddOrder{
-		Account:      "account1",
-		Symbol:       symbol,
-		Type:         obOrderType,
-		Price:        price,
-		TimeInForce:  obTimeInForce,
-		Side:         obSide,
-		TransactTime: time.Now(),
-		Quantity:     orderQty,
-	})
+	a.fixManager.AddOrder(context.Background(), m)
 	return nil
 }
 

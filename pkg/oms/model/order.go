@@ -3,7 +3,9 @@ package model
 import (
 	"time"
 
-	"github.com/shopspring/decimal"
+	"github.com/joripage/orderbook-dev/pkg/misc"
+	"github.com/joripage/orderbook-dev/pkg/oms/constant"
+	"github.com/joripage/orderbook-dev/pkg/orderbook"
 )
 
 type OrderStatus string
@@ -73,15 +75,16 @@ const (
 )
 
 type Order struct {
-	ID int64
+	ID        string
+	GatewayID string
 
 	// init info
 	Symbol       string
 	Side         OrderSide
 	Type         OrderType
 	TimeInForce  OrderTimeInForce
-	Price        decimal.Decimal
-	Quantity     decimal.Decimal
+	Price        float64
+	Quantity     int64
 	Account      string
 	TransactTime time.Time
 
@@ -94,8 +97,50 @@ type Order struct {
 	OrderID        string
 	Status         OrderStatus
 	ExecType       OrderExecType
-	CumQuantity    decimal.Decimal
-	LeavesQuantity decimal.Decimal
-	LastQuantity   decimal.Decimal
-	LastPrice      decimal.Decimal
+	CumQuantity    int64
+	LeavesQuantity int64
+	LastQuantity   int64
+	LastPrice      float64
+	AvgPrice       float64
+}
+
+func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
+	qty := addOrder.Quantity.IntPart()
+	s.ID = misc.RandSeq(constant.ID_LENGTH)
+	s.GatewayID = addOrder.ID
+	s.Symbol = addOrder.Symbol
+	s.Side = addOrder.Side
+	s.Type = addOrder.Type
+	s.TimeInForce = addOrder.TimeInForce
+	s.Price = addOrder.Price.InexactFloat64()
+	s.Quantity = qty
+	s.Account = addOrder.Account
+	s.TransactTime = addOrder.TransactTime
+
+	// calculated info
+	s.ExecID = ""
+	s.OrderID = s.ID
+	s.Status = OrderStatusPendingNew
+	s.ExecType = ExecTypeNew
+	s.CumQuantity = 0
+	s.LeavesQuantity = qty
+	s.LastQuantity = 0
+	s.LastPrice = 0
+	s.AvgPrice = 0
+}
+
+func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
+	oldValue := s.AvgPrice * float64(s.CumQuantity)
+	addedValue := match.Price * float64(match.Qty)
+	s.LastPrice = match.Price
+	s.CumQuantity += match.Qty
+	s.LeavesQuantity -= match.Qty
+	s.LastQuantity = match.Qty
+	s.AvgPrice = (oldValue + addedValue) / float64(s.CumQuantity)
+	if s.CumQuantity > 0 {
+		s.Status = OrderStatusPartiallyFilled
+	}
+	if s.LeavesQuantity == 0 {
+		s.Status = OrderStatusFilled
+	}
 }

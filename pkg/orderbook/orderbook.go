@@ -133,7 +133,7 @@ func (ob *orderBook) executeLimit(order *Order) []MatchResult {
 	}
 
 	if order.TimeInForce == FOK {
-		total := 0
+		total := int64(0)
 		for _, r := range results {
 			total += r.Qty
 		}
@@ -189,21 +189,35 @@ func (ob *orderBook) matchOrder(
 		order.Qty -= matchQty
 		best.Qty -= matchQty
 
-		if side == BUY {
-			results = append(results, MatchResult{
-				BuyOrderID:  order.ID,
-				SellOrderID: best.ID,
-				Price:       bestPrice,
-				Qty:         matchQty,
-			})
-		} else {
-			results = append(results, MatchResult{
-				BuyOrderID:  best.ID,
-				SellOrderID: order.ID,
-				Price:       bestPrice,
-				Qty:         matchQty,
-			})
-		}
+		// if side == BUY {
+		// 	results = append(results, MatchResult{
+		// 		OrderID:        order.ID,
+		// 		CounterOrderID: best.ID,
+		// 		Price:          bestPrice,
+		// 		Qty:            matchQty,
+		// 		Side:           BUY,
+		// 	})
+		// } else {
+		// 	results = append(results, MatchResult{
+		// 		OrderID:        order.ID,
+		// 		CounterOrderID: best.ID,
+		// 		Price:          bestPrice,
+		// 		Qty:            matchQty,
+		// 		Side:           SELL,
+		// 	})
+		// }
+
+		// bestID come first, then orderID come after that -> orderID = bestID, counterID = orderID, side = side before
+		results = append(results, MatchResult{
+			OrderID:        best.ID,
+			CounterOrderID: order.ID,
+			Price:          bestPrice,
+			Qty:            matchQty,
+			Side: map[Side]Side{
+				BUY:  SELL,
+				SELL: BUY,
+			}[side],
+		})
 
 		if best.Qty > 0 {
 			q.PushFront(best)
