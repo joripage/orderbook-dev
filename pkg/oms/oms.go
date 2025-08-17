@@ -72,7 +72,7 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) {
 	s.AddOrderToMap(order)
 
 	// report pending new
-	s.orderGateway.OnOrderReport(ctx, order)
+	// s.orderGateway.OnOrderReport(ctx, order)
 	s.orderbookManager.AddOrder(&orderbook.Order{
 		ID:          order.OrderID,
 		Symbol:      order.Symbol,
@@ -86,4 +86,8 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) {
 	// book success -> change pending new to new
 	order.Status = model.OrderStatusNew
 	s.orderGateway.OnOrderReport(ctx, order)
+}
+
+func (s *OMS) CancelOrder(ctx context.Context, orderID string) {
+
 }

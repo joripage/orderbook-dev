@@ -81,17 +81,21 @@ func orderReportToExecutionReport(order *model.Order, newOrderSingle *NewOrderSi
 	execReportMsg.SetPrice(decimal.NewFromFloat(order.Price), 0)
 	execReportMsg.SetTimeInForce(enum.TimeInForce(order.TimeInForce))
 	execReportMsg.SetTransactTime(order.TransactTime)
+	execReportMsg.SetLastQty(decimal.NewFromInt(order.LastQuantity), 0)
+	execReportMsg.SetLastPx(decimal.NewFromFloat(order.LastPrice), 0)
+	execReportMsg.SetExecID(order.ExecID)
 
-	if order.Status == model.OrderStatusPendingNew {
+	switch order.Status {
+	case model.OrderStatusPendingNew:
 		execReportMsg.SetExecType(enum.ExecType_PENDING_NEW)
 		execReportMsg.SetOrdStatus(enum.OrdStatus_PENDING_NEW)
-	} else if order.Status == model.OrderStatusNew {
+	case model.OrderStatusNew:
 		execReportMsg.SetExecType(enum.ExecType_NEW)
 		execReportMsg.SetOrdStatus(enum.OrdStatus_NEW)
-	} else if order.Status == model.OrderStatusPartiallyFilled {
+	case model.OrderStatusPartiallyFilled:
 		execReportMsg.SetExecType(enum.ExecType_TRADE)
 		execReportMsg.SetOrdStatus(enum.OrdStatus_PARTIALLY_FILLED)
-	} else if order.Status == model.OrderStatusFilled {
+	case model.OrderStatusFilled:
 		execReportMsg.SetExecType(enum.ExecType_TRADE)
 		execReportMsg.SetOrdStatus(enum.OrdStatus_FILLED)
 	}

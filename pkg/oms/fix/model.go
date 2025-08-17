@@ -29,3 +29,21 @@ type NewOrderSingle struct {
 	SecurityID        string
 	MaxFloor          decimal.Decimal
 }
+
+type OrderCancelRequest struct {
+	SenderCompID     string
+	SenderSubID      string
+	TargetCompID     string
+	OnBehalfOfCompID string
+	DeliverToCompID  string
+
+	OrigClOrderID     string
+	ClOrderID         string
+	Account           string
+	Symbol            string
+	Side              string
+	TransactTime      time.Time
+	MaturityMonthYear string
+	SecurityType      string
+	SecurityID        string
+}

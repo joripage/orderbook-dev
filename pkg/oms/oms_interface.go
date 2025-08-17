@@ -9,5 +9,5 @@ import (
 type IOMS interface {
 	AddOrder(ctx context.Context, addOrder *model.AddOrder)
 	// ModifyOrder(ctx context.Context)
-	// CancelOrder(ctx context.Context)
+	CancelOrder(ctx context.Context, orderID string)
 }

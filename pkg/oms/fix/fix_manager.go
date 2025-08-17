@@ -84,13 +84,13 @@ func (s *FixManager) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 	})
 }
 
-// func (s *FixManager) ModifyOrder(ctx context.Context) {
+func (s *FixManager) ModifyOrder(ctx context.Context) {
 
-// }
+}
 
-// func (s *FixManager) CancelOrder(ctx context.Context) {
+func (s *FixManager) CancelOrder(ctx context.Context, orderCancelRequest *OrderCancelRequest) {
 
-// }
+}
 
 func (s *FixManager) OnOrderReport(ctx context.Context, args ...interface{}) {
 	if len(args) == 0 {
@@ -103,8 +103,11 @@ func (s *FixManager) OnOrderReport(ctx context.Context, args ...interface{}) {
 			log.Printf("match OrderID=%s not found", order.OrderID)
 			return
 		}
-
-		msg := orderReportToExecutionReport(order, newOrderSingle)
-		quickfix.Send(msg)
+		// todo: need to review if we need to send via goroutine
+		orderBK, newOrnewOrderSingleBK := *order, *newOrderSingle
+		go func() {
+			msg := orderReportToExecutionReport(&orderBK, &newOrnewOrderSingleBK)
+			quickfix.Send(msg)
+		}()
 	}
 }

@@ -143,4 +143,5 @@ func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
 	if s.LeavesQuantity == 0 {
 		s.Status = OrderStatusFilled
 	}
+	s.ExecID = misc.RandSeq(constant.ID_LENGTH)
 }

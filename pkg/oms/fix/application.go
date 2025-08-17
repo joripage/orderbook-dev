@@ -39,7 +39,7 @@ type inboundMsg struct {
 }
 
 const (
-	numShards = 16
+	numShards = 64
 	queueSize = 1_000_000
 )
 
@@ -91,8 +91,8 @@ func startApp(config_filepath string, fixManager *FixManager) (*Application, err
 	}
 
 	app := newApplication(AppConfig{
-		enableQueue: true,
-		// enableShardQueue: true,
+		// enableQueue: true,
+		enableShardQueue: true,
 	}, fixManager)
 
 	logFactory, _ := file.NewLogFactory(appSettings)
@@ -227,41 +227,96 @@ func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessio
 }
 
 func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelRequest, sessionID quickfix.SessionID) quickfix.MessageRejectError {
+	// senderCompID, _ := msg.GetSenderCompID()
+	// senderSubID, _ := msg.GetSenderSubID()
+	// targetCompID, _ := msg.GetTargetCompID()
+	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
+	// deliverToCompID, _ := msg.GetDeliverToCompID()
+
+	// origClOrdID, _ := msg.GetOrigClOrdID()
+	// clOrdID, _ := msg.GetClOrdID()
+	// account, _ := msg.GetAccount()
+	// symbol, _ := msg.GetSymbol()
+	// side, _ := msg.GetSide()
+	// transactTime, _ := msg.GetTransactTime()
+	// maturityMonthYear, _ := msg.GetMaturityMonthYear()
+	// securityType, _ := msg.GetSecurityType()
+	// securityID, _ := msg.GetSecurityID()
+
+	// m := OrderCancelRequest{
+	// 	SenderCompID:     senderCompID,
+	// 	SenderSubID:      senderSubID,
+	// 	TargetCompID:     targetCompID,
+	// 	OnBehalfOfCompID: onBehalfOfCompID,
+	// 	DeliverToCompID:  deliverToCompID,
+
+	// 	OrigClOrderID:     origClOrdID,
+	// 	ClOrderID:         clOrdID,
+	// 	Account:           account,
+	// 	Symbol:            symbol,
+	// 	Side:              string(side),
+	// 	TransactTime:      transactTime,
+	// 	MaturityMonthYear: maturityMonthYear,
+	// 	SecurityType:      string(securityType),
+	// 	SecurityID:        securityID,
+	// }
+	// err := a.fixManager.CancelOrder(m)
+	// if err != nil {
+	// 	a.logger.Error("OnOrderCancelRequest", "error", err)
+	// }
 
 	return nil
 }
 
 func (a *Application) onOrderCancelReplaceRequest(msg ordercancelreplacerequest.OrderCancelReplaceRequest, sessionID quickfix.SessionID) quickfix.MessageRejectError {
 
+	// senderCompID, _ := msg.GetSenderCompID()
+	// senderSubID, _ := msg.GetSenderSubID()
+	// targetCompID, _ := msg.GetTargetCompID()
+	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
+	// deliverToCompID, _ := msg.GetDeliverToCompID()
+	// msgSeqNum, _ := msg.GetMsgSeqNum()
+
+	// origClOrderID, _ := msg.GetOrigClOrdID()
+	// clOrderID, _ := msg.GetClOrdID()
+	// account, _ := msg.GetAccount()
+	// symbol, _ := msg.GetSymbol()
+	// side, _ := msg.GetSide()
+	// transactTime, _ := msg.GetTransactTime()
+	// orderQty, _ := msg.GetOrderQty()
+	// ordType, _ := msg.GetOrdType()
+	// price, _ := msg.GetPrice()
+	// timeInForce, _ := msg.GetTimeInForce()
+	// maturityMonthYear, _ := msg.GetMaturityMonthYear()
+	// securityType, _ := msg.GetSecurityType()
+	// securityID, _ := msg.GetSecurityID()
+
+	// m := model.OrderCancelReplaceRequest{
+	// 	OrigClOrderID:     origClOrderID,
+	// 	ClOrderID:         clOrderID,
+	// 	Account:           account,
+	// 	Symbol:            symbol,
+	// 	Side:              string(side),
+	// 	TransactTime:      transactTime,
+	// 	OrderQty:          orderQty,
+	// 	OrdType:           string(ordType),
+	// 	Price:             price,
+	// 	TimeInForce:       string(timeInForce),
+	// 	MaturityMonthYear: maturityMonthYear,
+	// 	SecurityType:      string(securityType),
+	// 	SecurityID:        securityID,
+
+	// 	SenderCompID:     senderCompID,
+	// 	SenderSubID:      senderSubID,
+	// 	TargetCompID:     targetCompID,
+	// 	OnBehalfOfCompID: onBehalfOfCompID,
+	// 	DeliverToCompID:  deliverToCompID,
+	// 	MsgSeqNum:        msgSeqNum,
+	// }
+	// err := a.oms.OnOrderCancelReplaceRequest(m)
+	// if err != nil {
+	// 	a.logger.Error("OnOrderCancelReplaceRequest", "error", err)
+	// }
+
 	return nil
 }
-
-// func (a *Application) sendExecutionReport(tradeResult *orderbook.MatchResult) quickfix.MessageRejectError {
-// 	execReportMsg := executionreport.New(
-// 		field.NewOrderID(report.OrderID),
-// 		field.NewExecID(report.ExecID),
-// 		field.NewExecTransType(enum.ExecTransType(report.ExecTransType)),
-// 		field.NewExecType(enum.ExecType(report.ExecType)),
-// 		field.NewOrdStatus(enum.OrdStatus(report.OrdStatus)),
-// 		field.NewSymbol(report.Symbol),
-// 		field.NewSide(enum.Side(report.Side)),
-// 		field.NewLeavesQty(report.LeavesQty, 2),
-// 		field.NewCumQty(report.CumQty, 2),
-// 		field.NewAvgPx(report.AvgPx, 2),
-// 	)
-
-// 	execReportMsg.SetClOrdID(report.ClOrdID)
-// 	execReportMsg.SetAccount(report.Account)
-// 	execReportMsg.SetOrderQty(report.OrderQty, 0)
-// 	execReportMsg.SetPrice(report.Price, 0)
-// 	execReportMsg.SetTimeInForce(enum.TimeInForce(report.TimeInForce))
-// 	execReportMsg.SetTransactTime(report.TransactTime)
-// 	execReportMsg.SetText(report.Text)
-// 	execReportMsg.SetMaturityMonthYear(report.MaturityMonthYear)
-// 	execReportMsg.SetSecurityType(enum.SecurityType(report.SecurityType))
-
-// 	execReportMsg.SetTargetCompID(report.SenderCompID)
-// 	execReportMsg.SetSenderCompID(report.TargetCompID)
-
-// 	return quickfix.Send(execReportMsg)
-// }

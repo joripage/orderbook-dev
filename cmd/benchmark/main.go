@@ -29,7 +29,7 @@ func randomOrder(id int) *orderbook.Order {
 		ID:     fmt.Sprintf("ORD-%06d", id),
 		Symbol: "ABC",
 		Side:   side,
-		Price:  float64(int(price*100)) / 100, // làm tròn 2 chữ số thập phân
+		Price:  float64(int(price*100)) / 100,
 		Qty:    qty,
 		Type:   orderbook.LIMIT,
 	}
