@@ -72,11 +72,11 @@ func (s *FixManager) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 	s.AddOrderToMap(newOrderSingle)
 
 	s.omsInstance.AddOrder(ctx, &model.AddOrder{
-		ID:           newOrderSingle.ClOrdID,
-		Account:      newOrderSingle.Account,
-		Symbol:       newOrderSingle.Symbol,
-		SecurityID:   newOrderSingle.SecurityID,
-		Exchange:     newOrderSingle.Exchange,
+		ID:         newOrderSingle.ClOrdID,
+		Account:    newOrderSingle.Account,
+		Symbol:     newOrderSingle.Symbol,
+		SecurityID: newOrderSingle.SecurityID,
+		// Exchange:     newOrderSingle.Exchange,
 		Type:         orderType,
 		Price:        newOrderSingle.Price,
 		TimeInForce:  timeInForce,
