@@ -1,0 +1,13 @@
+{
+  "HOSE": [
+    { "maxPrice": 10000, "step": 10 },
+    { "maxPrice": 50000, "step": 50 },
+    { "maxPrice": 0,     "step": 100 }
+  ],
+  "HNX": [
+    { "maxPrice": 0,     "step": 100 }
+  ],
+  "UPCOM": [
+    { "maxPrice": 0,     "step": 100 }
+  ]
+}

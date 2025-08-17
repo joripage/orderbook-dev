@@ -10,6 +10,8 @@ type AddOrder struct {
 	ID           string
 	Account      string
 	Symbol       string
+	SecurityID   string
+	Exchange     string
 	Type         OrderType
 	Price        decimal.Decimal
 	TimeInForce  OrderTimeInForce

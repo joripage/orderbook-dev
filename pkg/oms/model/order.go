@@ -80,6 +80,8 @@ type Order struct {
 
 	// init info
 	Symbol       string
+	SecurityID   string
+	Exchange     string
 	Side         OrderSide
 	Type         OrderType
 	TimeInForce  OrderTimeInForce
@@ -109,6 +111,8 @@ func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 	s.ID = misc.RandSeq(constant.ID_LENGTH)
 	s.GatewayID = addOrder.ID
 	s.Symbol = addOrder.Symbol
+	s.SecurityID = addOrder.SecurityID
+	s.Exchange = addOrder.Exchange
 	s.Side = addOrder.Side
 	s.Type = addOrder.Type
 	s.TimeInForce = addOrder.TimeInForce

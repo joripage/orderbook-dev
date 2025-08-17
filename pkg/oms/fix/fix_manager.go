@@ -75,6 +75,8 @@ func (s *FixManager) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 		ID:           newOrderSingle.ClOrdID,
 		Account:      newOrderSingle.Account,
 		Symbol:       newOrderSingle.Symbol,
+		SecurityID:   newOrderSingle.SecurityID,
+		Exchange:     newOrderSingle.Exchange,
 		Type:         orderType,
 		Price:        newOrderSingle.Price,
 		TimeInForce:  timeInForce,
