@@ -406,6 +406,25 @@ func sendMessageCancelOrder44(sessionID quickfix.SessionID) {
 	err := quickfix.Send(orderBuy)
 	log.Println(err)
 
+	sellID := randSeq(17)
+	orderSell := fix44nos.New(
+		field.NewClOrdID(""),
+		field.NewSide(enum.Side_SELL),
+		field.NewTransactTime(time.Now()),
+		field.NewOrdType(enum.OrdType_LIMIT))
+	orderSell.SetAccount("TMT")
+	orderSell.SetSymbol("VN000000HAG6")
+	orderSell.SetSecurityID("VN000000HAG6")
+	orderSell.SetPrice(decimal.NewFromInt(15600), 0)
+	orderSell.SetOrderQty(decimal.NewFromInt(20), 0)
+	orderSell.SetTimeInForce("0")
+	orderSell.SetSenderCompID(sessionID.SenderCompID)
+	orderSell.SetTargetCompID(sessionID.TargetCompID)
+	orderSell.SetClOrdID(sellID)
+
+	err = quickfix.Send(orderSell)
+	log.Println(err)
+
 	go func() {
 		select { // nolint
 		case <-time.After(5 * time.Second):
@@ -417,7 +436,7 @@ func sendMessageCancelOrder44(sessionID quickfix.SessionID) {
 			orderBuyCancel.SetAccount("TMT")
 			orderBuyCancel.SetSymbol("VN000000HAG6")
 			orderBuyCancel.SetSecurityID("VN000000HAG6")
-			orderBuyCancel.SetOrderQty(decimal.NewFromInt(1000), 0)
+			orderBuyCancel.SetOrderQty(decimal.NewFromInt(80), 0)
 			orderBuyCancel.SetSenderCompID(sessionID.SenderCompID)
 			orderBuyCancel.SetTargetCompID(sessionID.TargetCompID)
 			err = quickfix.Send(orderBuyCancel)
