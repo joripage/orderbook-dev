@@ -75,8 +75,9 @@ const (
 )
 
 type Order struct {
-	ID        string
-	GatewayID string
+	ID            string
+	GatewayID     string
+	OrigGatewayID string
 
 	// init info
 	Symbol       string

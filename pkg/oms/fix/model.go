@@ -1,18 +1,20 @@
-package fixmanager
+package fixgateway
 
 import (
 	"time"
 
 	"github.com/quickfixgo/enum"
+	"github.com/quickfixgo/quickfix"
 	"github.com/shopspring/decimal"
 )
 
 type NewOrderSingle struct {
-	SenderCompID     string
-	SenderSubID      string
-	TargetCompID     string
-	OnBehalfOfCompID string
-	DeliverToCompID  string
+	SessionID *quickfix.SessionID
+	// SenderCompID     string
+	// SenderSubID      string
+	// TargetCompID     string
+	// OnBehalfOfCompID string
+	// DeliverToCompID  string
 
 	Account           string
 	AccountType       enum.AccountType
@@ -31,11 +33,12 @@ type NewOrderSingle struct {
 }
 
 type OrderCancelRequest struct {
-	SenderCompID     string
-	SenderSubID      string
-	TargetCompID     string
-	OnBehalfOfCompID string
-	DeliverToCompID  string
+	SessionID *quickfix.SessionID
+	// SenderCompID     string
+	// SenderSubID      string
+	// TargetCompID     string
+	// OnBehalfOfCompID string
+	// DeliverToCompID  string
 
 	OrigClOrderID     string
 	ClOrderID         string

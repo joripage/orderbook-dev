@@ -1,4 +1,4 @@
-package fixmanager
+package fixgateway
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ type Application struct {
 	dispatcher chan *inboundMsg
 	shardQueue *shardqueue.Shardqueue
 
-	fixManager *FixManager
+	fixGateway *FixGateway
 }
 
 type AppConfig struct {
@@ -43,12 +43,12 @@ const (
 	queueSize = 1_000_000
 )
 
-func newApplication(cfg AppConfig, fixManger *FixManager) *Application {
+func newApplication(cfg AppConfig, fixGateway *FixGateway) *Application {
 	app := &Application{
 		MessageRouter: quickfix.NewMessageRouter(),
 		cfg:           cfg,
 		quickEvent:    make(chan bool, 1),
-		fixManager:    fixManger,
+		fixGateway:    fixGateway,
 	}
 
 	app.AddRoute(newordersingle.Route(app.onNewOrderSingle))
@@ -71,7 +71,7 @@ func newApplication(cfg AppConfig, fixManger *FixManager) *Application {
 	return app
 }
 
-func startApp(config_filepath string, fixManager *FixManager) (*Application, error) {
+func startApp(config_filepath string, fixGateway *FixGateway) (*Application, error) {
 	var cfgFileName = config_filepath
 
 	cfg, err := os.Open(cfgFileName)
@@ -93,7 +93,7 @@ func startApp(config_filepath string, fixManager *FixManager) (*Application, err
 	app := newApplication(AppConfig{
 		// enableQueue: true,
 		enableShardQueue: true,
-	}, fixManager)
+	}, fixGateway)
 
 	logFactory, _ := file.NewLogFactory(appSettings)
 	acceptor, err := quickfix.NewAcceptor(app, quickfix.NewMemoryStoreFactory(), appSettings, logFactory)
@@ -178,11 +178,11 @@ func (a *Application) runDispatcher() {
 }
 
 func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessionID quickfix.SessionID) quickfix.MessageRejectError {
-	senderCompID, _ := msg.GetSenderCompID()
-	senderSubID, _ := msg.GetSenderSubID()
-	targetCompID, _ := msg.GetTargetCompID()
-	onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
-	deliverToCompID, _ := msg.GetDeliverToCompID()
+	// senderCompID, _ := msg.GetSenderCompID()
+	// senderSubID, _ := msg.GetSenderSubID()
+	// targetCompID, _ := msg.GetTargetCompID()
+	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
+	// deliverToCompID, _ := msg.GetDeliverToCompID()
 
 	clOrdID, _ := msg.GetClOrdID()
 	symbol, _ := msg.GetSymbol()
@@ -200,11 +200,12 @@ func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessio
 	maxFloor, _ := msg.GetMaxFloor()
 
 	m := &NewOrderSingle{
-		SenderCompID:     senderCompID,
-		SenderSubID:      senderSubID,
-		TargetCompID:     targetCompID,
-		OnBehalfOfCompID: onBehalfOfCompID,
-		DeliverToCompID:  deliverToCompID,
+		SessionID: &sessionID,
+		// SenderCompID:     senderCompID,
+		// SenderSubID:      senderSubID,
+		// TargetCompID:     targetCompID,
+		// OnBehalfOfCompID: onBehalfOfCompID,
+		// DeliverToCompID:  deliverToCompID,
 
 		Account:           account,
 		AccountType:       accountType,
@@ -221,8 +222,8 @@ func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessio
 		SecurityID:        securityID,
 		MaxFloor:          maxFloor,
 	}
+	a.fixGateway.AddOrder(context.Background(), m)
 
-	a.fixManager.AddOrder(context.Background(), m)
 	return nil
 }
 
@@ -233,37 +234,35 @@ func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelReq
 	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
 	// deliverToCompID, _ := msg.GetDeliverToCompID()
 
-	// origClOrdID, _ := msg.GetOrigClOrdID()
-	// clOrdID, _ := msg.GetClOrdID()
-	// account, _ := msg.GetAccount()
-	// symbol, _ := msg.GetSymbol()
-	// side, _ := msg.GetSide()
-	// transactTime, _ := msg.GetTransactTime()
-	// maturityMonthYear, _ := msg.GetMaturityMonthYear()
-	// securityType, _ := msg.GetSecurityType()
-	// securityID, _ := msg.GetSecurityID()
+	origClOrdID, _ := msg.GetOrigClOrdID()
+	clOrdID, _ := msg.GetClOrdID()
+	account, _ := msg.GetAccount()
+	symbol, _ := msg.GetSymbol()
+	side, _ := msg.GetSide()
+	transactTime, _ := msg.GetTransactTime()
+	maturityMonthYear, _ := msg.GetMaturityMonthYear()
+	securityType, _ := msg.GetSecurityType()
+	securityID, _ := msg.GetSecurityID()
 
-	// m := OrderCancelRequest{
-	// 	SenderCompID:     senderCompID,
-	// 	SenderSubID:      senderSubID,
-	// 	TargetCompID:     targetCompID,
-	// 	OnBehalfOfCompID: onBehalfOfCompID,
-	// 	DeliverToCompID:  deliverToCompID,
+	m := &OrderCancelRequest{
+		SessionID: &sessionID,
+		// SenderCompID:     senderCompID,
+		// SenderSubID:      senderSubID,
+		// TargetCompID:     targetCompID,
+		// OnBehalfOfCompID: onBehalfOfCompID,
+		// DeliverToCompID:  deliverToCompID,
 
-	// 	OrigClOrderID:     origClOrdID,
-	// 	ClOrderID:         clOrdID,
-	// 	Account:           account,
-	// 	Symbol:            symbol,
-	// 	Side:              string(side),
-	// 	TransactTime:      transactTime,
-	// 	MaturityMonthYear: maturityMonthYear,
-	// 	SecurityType:      string(securityType),
-	// 	SecurityID:        securityID,
-	// }
-	// err := a.fixManager.CancelOrder(m)
-	// if err != nil {
-	// 	a.logger.Error("OnOrderCancelRequest", "error", err)
-	// }
+		OrigClOrderID:     origClOrdID,
+		ClOrderID:         clOrdID,
+		Account:           account,
+		Symbol:            symbol,
+		Side:              string(side),
+		TransactTime:      transactTime,
+		MaturityMonthYear: maturityMonthYear,
+		SecurityType:      string(securityType),
+		SecurityID:        securityID,
+	}
+	a.fixGateway.CancelOrder(context.Background(), m)
 
 	return nil
 }

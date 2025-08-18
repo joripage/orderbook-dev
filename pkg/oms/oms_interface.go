@@ -7,7 +7,7 @@ import (
 )
 
 type IOMS interface {
-	AddOrder(ctx context.Context, addOrder *model.AddOrder)
+	AddOrder(ctx context.Context, addOrder *model.AddOrder) error
 	// ModifyOrder(ctx context.Context)
-	CancelOrder(ctx context.Context, orderID string)
+	CancelOrder(ctx context.Context, gatewayID string) error
 }

@@ -14,8 +14,9 @@ type OMS struct {
 	orderGateway     OrderGateway
 	orderbookManager *orderbook.OrderBookManager
 
-	orderMapping sync.Map
-	rules        []riskrule.RiskRule
+	orderIDMapping   sync.Map
+	gatewayIDMapping sync.Map
+	rules            []riskrule.RiskRule
 }
 
 var totalMatchQty int64 = 0
@@ -68,7 +69,7 @@ func (s *OMS) Start(ctx context.Context) {
 	s.orderGateway.Start(ctx)
 }
 
-func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) {
+func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	// todo: check riskrule
 	order := &model.Order{}
 	order.UpdateAddOrder(addOrder)
@@ -89,9 +90,21 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) {
 	// book success -> change pending new to new
 	order.Status = model.OrderStatusNew
 	s.orderGateway.OnOrderReport(ctx, order)
+
+	return nil
 }
 
-func (s *OMS) CancelOrder(ctx context.Context, orderID string) {
+func (s *OMS) CancelOrder(ctx context.Context, gatewayID string) error {
 	// todo: check riskrule
+	order, err := s.GetOrderByGatewayID(gatewayID)
+	if err != nil {
+		return errGatewayIDNotFound
+	}
 
+	err = s.orderbookManager.CancelOrder(order.Symbol, order.OrderID)
+	_ = err
+	order.Status = model.OrderStatusCanceled
+	s.orderGateway.OnOrderReport(ctx, order)
+
+	return nil
 }

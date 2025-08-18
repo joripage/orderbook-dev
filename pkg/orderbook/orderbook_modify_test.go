@@ -10,7 +10,7 @@ func TestCancelOrder(t *testing.T) {
 	}
 	ob.addOrder(order)
 
-	if !ob.cancelOrder("1") {
+	if err := ob.cancelOrder("1"); err != nil {
 		t.Fatalf("expected cancel success")
 	}
 
@@ -27,7 +27,7 @@ func TestModifyOrder_DecreaseQty(t *testing.T) {
 	}
 	ob.addOrder(order)
 
-	if !ob.modifyOrder("1", 100, 5) {
+	if err := ob.modifyOrder("1", 100, 5); err != nil {
 		t.Fatalf("expected modify success")
 	}
 
@@ -48,7 +48,7 @@ func TestModifyOrder_IncreaseQty(t *testing.T) {
 	}
 	ob.addOrder(order)
 
-	if !ob.modifyOrder("1", 100, 20) {
+	if err := ob.modifyOrder("1", 100, 20); err != nil {
 		t.Fatalf("expected modify success")
 	}
 
@@ -66,7 +66,7 @@ func TestModifyOrder_ChangePrice(t *testing.T) {
 	}
 	ob.addOrder(order)
 
-	if !ob.modifyOrder("1", 105, 10) {
+	if err := ob.modifyOrder("1", 105, 10); err != nil {
 		t.Fatalf("expected modify success")
 	}
 

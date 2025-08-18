@@ -1,4 +1,4 @@
-package fixmanager
+package fixgateway
 
 import (
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
@@ -62,7 +62,7 @@ var (
 // 	LastPrice      decimal.Decimal
 // }
 
-func orderReportToExecutionReport(order *model.Order, newOrderSingle *NewOrderSingle) quickfix.Messagable {
+func orderReportToExecutionReport(order *model.Order) quickfix.Messagable {
 	execReportMsg := executionreport.New(
 		field.NewOrderID(order.OrderID),
 		field.NewExecID(order.ExecID), //think again if it should be in Order model
@@ -74,9 +74,9 @@ func orderReportToExecutionReport(order *model.Order, newOrderSingle *NewOrderSi
 		field.NewAvgPx(decimal.NewFromFloat(order.AvgPrice), 2),
 	)
 
-	execReportMsg.SetClOrdID(newOrderSingle.ClOrdID)
+	execReportMsg.SetClOrdID(order.GatewayID)
 	execReportMsg.SetAccount(order.Account)
-	execReportMsg.SetAccountType(enum.AccountType(newOrderSingle.Account))
+	execReportMsg.SetAccountType(enum.AccountType(order.Account))
 	execReportMsg.SetOrderQty(decimal.NewFromInt(order.Quantity), 0)
 	execReportMsg.SetPrice(decimal.NewFromFloat(order.Price), 0)
 	execReportMsg.SetTimeInForce(enum.TimeInForce(order.TimeInForce))
@@ -98,23 +98,19 @@ func orderReportToExecutionReport(order *model.Order, newOrderSingle *NewOrderSi
 	case model.OrderStatusFilled:
 		execReportMsg.SetExecType(enum.ExecType_TRADE)
 		execReportMsg.SetOrdStatus(enum.OrdStatus_FILLED)
+	case model.OrderStatusCanceled:
+		execReportMsg.SetExecType(enum.ExecType_CANCELED)
+		execReportMsg.SetOrdStatus(enum.OrdStatus_CANCELED)
 	}
 
-	if newOrderSingle.MaturityMonthYear != "" {
-		execReportMsg.SetMaturityMonthYear(newOrderSingle.MaturityMonthYear)
-	}
-	if newOrderSingle.SecurityType != "" {
-		execReportMsg.SetSecurityType(enum.SecurityType(newOrderSingle.SecurityType))
-	}
-
-	execReportMsg.SetTargetCompID(newOrderSingle.SenderCompID)
-	execReportMsg.SetSenderCompID(newOrderSingle.TargetCompID)
-	if newOrderSingle.OnBehalfOfCompID != "" {
-		execReportMsg.SetOnBehalfOfCompID(newOrderSingle.OnBehalfOfCompID)
-	}
-	if newOrderSingle.DeliverToCompID != "" {
-		execReportMsg.SetDeliverToCompID(newOrderSingle.DeliverToCompID)
-	}
+	// execReportMsg.SetTargetCompID(newOrderSingle.SenderCompID)
+	// execReportMsg.SetSenderCompID(newOrderSingle.TargetCompID)
+	// if newOrderSingle.OnBehalfOfCompID != "" {
+	// 	execReportMsg.SetOnBehalfOfCompID(newOrderSingle.OnBehalfOfCompID)
+	// }
+	// if newOrderSingle.DeliverToCompID != "" {
+	// 	execReportMsg.SetDeliverToCompID(newOrderSingle.DeliverToCompID)
+	// }
 
 	return execReportMsg
 }

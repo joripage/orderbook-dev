@@ -30,6 +30,8 @@ github.com/quickfixgo/enum v0.1.0 h1:TnCPOqxAWA5/IWp7lsvj97x7oyuHYgj3STBJlBzZGjM
 github.com/quickfixgo/enum v0.1.0/go.mod h1:65gdG2/8vr6uOYcjZBObVHMuTEYc5rr/+aKVWTrFIrQ=
 github.com/quickfixgo/field v0.1.0 h1:JVO6fVD6Nkyy8e/ROYQtV/nQhMX/BStD5Lq7XIgYz2g=
 github.com/quickfixgo/field v0.1.0/go.mod h1:Zu0qYmpj+gljlB2HgpUt9EcTIThs2lIQb8C57qbJr8o=
+github.com/quickfixgo/fix42 v0.1.0 h1:uFDM1ZylhTCLnDptwvrU6SkKRkDrqShYHHBATz/c1q0=
+github.com/quickfixgo/fix42 v0.1.0/go.mod h1:jiZZiS92naJmyhbMd3l8qPUV7ufnwkxUqFqgYBtJOp4=
 github.com/quickfixgo/fix44 v0.1.0 h1:g/rTl6mXDlG7iIMbY7zaPbHcj9N/B+tteOZ01yGzeSQ=
 github.com/quickfixgo/fix44 v0.1.0/go.mod h1:d6Ia02Eq/JYgKCn/2V9FHxguAl1Alp/yu/xVpry82dA=
 github.com/quickfixgo/quickfix v0.9.10 h1:j3OIIVaE9L9x7LwgbABE/FQSrMAXtHaqpRo3IAIRfKw=

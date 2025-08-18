@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/joripage/orderbook-dev/pkg/oms"
-	fixmanager "github.com/joripage/orderbook-dev/pkg/oms/fix"
+	fixgateway "github.com/joripage/orderbook-dev/pkg/oms/fix"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	fixGateway := fixmanager.NewFixManager(&fixmanager.FixManagerConfig{
+	fixGateway := fixgateway.NewFixGateway(&fixgateway.FixGatewayConfig{
 		ConfigFilepath: "./config/fixserver.cfg",
 	})
 	oms := oms.NewOMS(fixGateway)

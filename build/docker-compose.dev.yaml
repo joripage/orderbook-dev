@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+    oms-db:
+        image: postgres:11.3-alpine
+        restart: always
+        environment:
+          - POSTGRES_PASSWORD=change_me
+          - POSTGRES_DB=oms-db
+        ports:
+          - 5454:5432
+    nats:
+        image: nats:latest
+        command: -js # This flag enables JetStream
+        ports:
+          - "4222:4222" # Client port
+          - "8222:8222" # Monitoring port (for JetStream metrics, etc.)

@@ -8,6 +8,7 @@ require (
 	github.com/joripage/go_util v0.0.0-20250810044346-6cbd88402bc1
 	github.com/quickfixgo/enum v0.1.0
 	github.com/quickfixgo/field v0.1.0
+	github.com/quickfixgo/fix42 v0.1.0
 	github.com/quickfixgo/fix44 v0.1.0
 	github.com/quickfixgo/quickfix v0.9.10
 	github.com/quickfixgo/tag v0.1.0

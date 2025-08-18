@@ -90,13 +90,13 @@ func (ob *orderBook) addOrder(order *Order) {
 	}
 }
 
-func (ob *orderBook) cancelOrder(orderID string) bool {
+func (ob *orderBook) cancelOrder(orderID string) error {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
 	order, ok := ob.ordersByID[orderID]
 	if !ok {
-		return false
+		return errOrderNotFound
 	}
 
 	var book map[float64]*deque.Deque[*Order]
@@ -111,7 +111,7 @@ func (ob *orderBook) cancelOrder(orderID string) bool {
 
 	q := book[order.Price]
 	if q == nil {
-		return false
+		return errInvalidOrderPrice
 	}
 
 	for i := 0; i < q.Len(); i++ {
@@ -126,27 +126,31 @@ func (ob *orderBook) cancelOrder(orderID string) bool {
 		delete(book, order.Price)
 		heapRef.Remove(order.Price)
 	}
-
 	delete(ob.ordersByID, orderID)
-	return true
+
+	return nil
 }
 
-func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64) bool {
+func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64) error {
 	ob.mu.Lock()
 
 	order, ok := ob.ordersByID[orderID]
 	if !ok {
-		return false
+		return errOrderNotFound
 	}
 
 	if order.Price == newPrice && newQty < order.Qty {
 		order.Qty = newQty
-		return true
+		return nil
 	}
 	ob.mu.Unlock()
 
 	// if quantity increased or price changed -> cancel then add new
-	ob.cancelOrder(orderID)
+	err := ob.cancelOrder(orderID)
+	if err != nil {
+		return err
+	}
+
 	newOrder := &Order{
 		ID:          order.ID,
 		Symbol:      order.Symbol,
@@ -158,7 +162,7 @@ func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64)
 	}
 	ob.addOrder(newOrder)
 
-	return true
+	return nil
 }
 
 func (ob *orderBook) registerTradeCallback(fn func(result []MatchResult)) {

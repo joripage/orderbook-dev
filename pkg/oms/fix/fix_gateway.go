@@ -1,4 +1,4 @@
-package fixmanager
+package fixgateway
 
 import (
 	"context"
@@ -11,31 +11,39 @@ import (
 	"github.com/quickfixgo/quickfix"
 )
 
-type FixManager struct {
-	cfg         *FixManagerConfig
+type FixGateway struct {
+	cfg         *FixGatewayConfig
 	app         *Application
 	omsInstance oms.IOMS
 
-	orderMapping sync.Map
+	// newOrderSingleMapping     sync.Map
+	// orderCancelRequestMapping sync.Map
+
+	requestMapping sync.Map
+	sessionMapping sync.Map
 }
 
-type FixManagerConfig struct {
+type FixGatewayConfig struct {
 	ConfigFilepath string
 }
 
-func NewFixManager(cfg *FixManagerConfig) *FixManager {
-	fm := &FixManager{
+func NewFixGateway(cfg *FixGatewayConfig) *FixGateway {
+	fm := &FixGateway{
 		cfg: cfg,
+		// newOrderSingleMapping:     sync.Map{},
+		// orderCancelRequestMapping: sync.Map{},
+		requestMapping: sync.Map{},
+		sessionMapping: sync.Map{},
 	}
 
 	return fm
 }
 
-func (s *FixManager) AddOmsInstance(o oms.IOMS) {
+func (s *FixGateway) AddOmsInstance(o oms.IOMS) {
 	s.omsInstance = o
 }
 
-func (s *FixManager) Start(ctx context.Context) error {
+func (s *FixGateway) Start(ctx context.Context) error {
 	app, err := startApp(s.cfg.ConfigFilepath, s)
 	if err != nil {
 		log.Printf("start app err=%v", err)
@@ -45,7 +53,8 @@ func (s *FixManager) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *FixManager) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingle) {
+func (s *FixGateway) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingle) {
+
 	orderType := map[enum.OrdType]model.OrderType{
 		enum.OrdType_LIMIT:  model.OrderTypeLimit,
 		enum.OrdType_MARKET: model.OrderTypeMarket,
@@ -69,7 +78,7 @@ func (s *FixManager) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 		enum.Side_SELL: model.OrderSideSell,
 	}[enum.Side(newOrderSingle.Side)]
 
-	s.AddOrderToMap(newOrderSingle)
+	s.AddRequestToMap(newOrderSingle.ClOrdID, newOrderSingle.SessionID)
 
 	s.omsInstance.AddOrder(ctx, &model.AddOrder{
 		ID:         newOrderSingle.ClOrdID,
@@ -86,30 +95,32 @@ func (s *FixManager) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 	})
 }
 
-func (s *FixManager) ModifyOrder(ctx context.Context) {
+func (s *FixGateway) ModifyOrder(ctx context.Context) {
 
 }
 
-func (s *FixManager) CancelOrder(ctx context.Context, orderCancelRequest *OrderCancelRequest) {
-
+func (s *FixGateway) CancelOrder(ctx context.Context, orderCancelRequest *OrderCancelRequest) {
+	s.AddRequestToMap(orderCancelRequest.ClOrderID, orderCancelRequest.SessionID)
+	s.omsInstance.CancelOrder(ctx, orderCancelRequest.OrigClOrderID)
 }
 
-func (s *FixManager) OnOrderReport(ctx context.Context, args ...interface{}) {
+func (s *FixGateway) OnOrderReport(ctx context.Context, args ...interface{}) {
 	if len(args) == 0 {
 		return
 	}
 
 	if order, ok := args[0].(*model.Order); ok {
-		newOrderSingle, err := s.GetNewOrderSingleByOrderID(order.GatewayID)
+
+		sessionID, err := s.GetRequestByClOrdID(order.GatewayID)
 		if err != nil {
 			log.Printf("match OrderID=%s not found", order.OrderID)
 			return
 		}
 		// todo: need to review if we need to send via goroutine
-		orderBK, newOrnewOrderSingleBK := *order, *newOrderSingle
+		orderBK := *order
 		go func() {
-			msg := orderReportToExecutionReport(&orderBK, &newOrnewOrderSingleBK)
-			quickfix.Send(msg)
+			msg := orderReportToExecutionReport(&orderBK)
+			quickfix.SendToTarget(msg, *sessionID)
 		}()
 	}
 }
