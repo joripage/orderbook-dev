@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/joripage/orderbook-dev/pkg/misc"
@@ -111,6 +112,7 @@ type Order struct {
 
 func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 	qty := addOrder.Quantity.IntPart()
+
 	s.ID = misc.RandSeq(constant.ID_LENGTH)
 	s.GatewayID = addOrder.GatewayID
 	s.Symbol = addOrder.Symbol
@@ -121,13 +123,14 @@ func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 	s.TimeInForce = addOrder.TimeInForce
 	s.Price = addOrder.Price.InexactFloat64()
 	s.Quantity = qty
+	s.LeavesQuantity = qty
 	s.Account = addOrder.Account
 	s.TransactTime = addOrder.TransactTime
 
 	// calculated info
 	s.ExecID = ""
 	s.OrderID = s.ID
-	s.Status = OrderStatusPendingNew
+	s.Status = OrderStatusNew
 	s.ExecType = ExecTypeNew
 	s.CumQuantity = 0
 	s.LeavesQuantity = qty
@@ -138,6 +141,7 @@ func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 
 func (s *Order) UpdateModifyOrder(modifyOrder *ModifyOrder) {
 	s.Status = OrderStatusReplaced
+	s.ExecType = ExecTypeReplaced
 	s.GatewayID = modifyOrder.GatewayID
 	s.OrigGatewayID = modifyOrder.OrigGatewayID
 
@@ -145,6 +149,23 @@ func (s *Order) UpdateModifyOrder(modifyOrder *ModifyOrder) {
 	s.LeavesQuantity = s.LeavesQuantity + (newQty - s.Quantity)
 	s.Price = newPrice
 	s.Quantity = newQty
+
+	s.LastExecID = s.ExecID
+	s.ExecID = genCancelReplaceExecID()
+	s.LastUpdate = time.Now()
+}
+
+func (s *Order) UpdateCancelOrder(cancelOrder *CancelOrder) {
+	s.Status = OrderStatusCanceled
+	s.ExecType = ExecTypeCanceled
+	s.GatewayID = cancelOrder.GatewayID
+	s.OrigGatewayID = cancelOrder.OrigGatewayID
+
+	s.LeavesQuantity = 0
+
+	s.LastExecID = s.ExecID
+	s.ExecID = genCancelExecID()
+	s.LastUpdate = time.Now()
 }
 
 func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
@@ -155,6 +176,7 @@ func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
 	s.LeavesQuantity -= match.Qty
 	s.LastQuantity = match.Qty
 	s.AvgPrice = (oldValue + addedValue) / float64(s.CumQuantity)
+	s.ExecType = ExecTypeTrade
 	if s.CumQuantity > 0 {
 		s.Status = OrderStatusPartiallyFilled
 	}
@@ -162,15 +184,7 @@ func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
 		s.Status = OrderStatusFilled
 	}
 	s.LastExecID = s.ExecID
-	s.ExecID = misc.RandSeq(constant.ID_LENGTH)
-	s.LastUpdate = time.Now()
-}
-
-func (s *Order) ToCancel() {
-	s.Status = OrderStatusCanceled
-	s.LeavesQuantity = 0
-	s.LastExecID = s.ExecID
-	s.ExecID = misc.RandSeq(constant.ID_LENGTH)
+	s.ExecID = genTradeExecID()
 	s.LastUpdate = time.Now()
 }
 
@@ -190,4 +204,16 @@ func (s *Order) CanModify() bool {
 	}
 
 	return false
+}
+
+func genTradeExecID() string {
+	return fmt.Sprintf("T-%s", misc.RandSeq(constant.EXECID_LENGTH-2))
+}
+
+func genCancelExecID() string {
+	return fmt.Sprintf("C-%s", misc.RandSeq(constant.EXECID_LENGTH-2))
+}
+
+func genCancelReplaceExecID() string {
+	return fmt.Sprintf("R-%s", misc.RandSeq(constant.EXECID_LENGTH-2))
 }

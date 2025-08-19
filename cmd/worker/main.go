@@ -65,7 +65,7 @@ func main() {
 
 	// Worker
 	w := worker.NewWorker(sqlRepo)
-	go w.StartConsumer(ctx, js, "ORDER.events", "order_worker")
+	go w.StartConsumer(ctx, js, "ORDERS.events", "order_worker")
 
 	// Add test order
 	// store.AddOrder(ctx, &oms.Order{

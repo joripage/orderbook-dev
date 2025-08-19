@@ -20,6 +20,11 @@ type AddOrder struct {
 	Quantity     decimal.Decimal
 }
 
+type CancelOrder struct {
+	GatewayID     string
+	OrigGatewayID string
+}
+
 type ModifyOrder struct {
 	NewPrice      decimal.Decimal
 	NewQuantity   decimal.Decimal

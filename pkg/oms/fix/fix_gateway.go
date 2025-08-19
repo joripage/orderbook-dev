@@ -98,19 +98,21 @@ func (s *FixGateway) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 func (s *FixGateway) ModifyOrder(ctx context.Context, req *OrderCancelReplaceRequest) {
 	s.AddRequestToMap(req.ClOrdID, req.SessionID)
 
-	s.omsInstance.ModifyOrder(ctx,
-		&model.ModifyOrder{
-			NewPrice:      req.Price,
-			NewQuantity:   req.OrderQty,
-			GatewayID:     req.ClOrdID,
-			OrigGatewayID: req.OrigClOrdID,
-		})
+	s.omsInstance.ModifyOrder(ctx, &model.ModifyOrder{
+		NewPrice:      req.Price,
+		NewQuantity:   req.OrderQty,
+		GatewayID:     req.ClOrdID,
+		OrigGatewayID: req.OrigClOrdID,
+	})
 }
 
-func (s *FixGateway) CancelOrder(ctx context.Context, orderCancelRequest *OrderCancelRequest) {
-	s.AddRequestToMap(orderCancelRequest.ClOrdID, orderCancelRequest.SessionID)
+func (s *FixGateway) CancelOrder(ctx context.Context, req *OrderCancelRequest) {
+	s.AddRequestToMap(req.ClOrdID, req.SessionID)
 
-	s.omsInstance.CancelOrder(ctx, orderCancelRequest.ClOrdID, orderCancelRequest.OrigClOrdID)
+	s.omsInstance.CancelOrder(ctx, &model.CancelOrder{
+		GatewayID:     req.ClOrdID,
+		OrigGatewayID: req.OrigClOrdID,
+	})
 }
 
 func (s *FixGateway) OnOrderReport(ctx context.Context, args ...interface{}) {

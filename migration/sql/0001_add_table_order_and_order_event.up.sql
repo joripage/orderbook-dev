@@ -33,12 +33,21 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS order_events (
+        "id" SERIAL PRIMARY KEY,
         event_id TEXT,
         order_id TEXT,
         gateway_id TEXT,
         orig_gateway_id TEXT,
-        exec_type VARCHAR,
+        exec_type TEXT,
+        order_status TEXT,
         qty BIGINT,
+        cum_qty BIGINT,
+        leaves_qty BIGINT,
         price DECIMAL,
-        timestamp TIMESTAMP
+        exec_id TEXT,
+        last_exec_id TEXT,
+        timestamp TIMESTAMP,
+        "created_at" timestamptz,
+        "updated_at" timestamptz,
+        "deleted_at" timestamptz
     );

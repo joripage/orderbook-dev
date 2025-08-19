@@ -31,8 +31,8 @@ func (a *InitiatorApp) OnCreate(sessionID quickfix.SessionID) {
 func (a *InitiatorApp) OnLogon(sessionID quickfix.SessionID) {
 	log.Println("Logon success")
 
-	go sendMessageMatchLimit44(sessionID)
-	// go sendMessageCancelOrder44(sessionID)
+	// go sendMessageMatchLimit44(sessionID)
+	go sendMessageCancelOrder44(sessionID)
 	// go sendMessageMatchAmend44(sessionID)
 }
 
@@ -120,7 +120,7 @@ func sendMessageMatchLimitSoftly(sessionID quickfix.SessionID) {
 }
 
 func sendMessageMatchLimit(sessionID quickfix.SessionID) {
-	total := 250_000
+	total := 50_000
 	start := time.Now()
 
 	log.Printf("Sending %d orders", total*2)
@@ -323,6 +323,7 @@ func sendMessageMatchLimit44(sessionID quickfix.SessionID) {
 	total := 125_000 // 500_000 / 4
 	// total = 62500    // 500_000 / 8
 	// total = 31250    // 500_000 / 16
+	total = 1
 	start := time.Now()
 
 	for i := 0; i < total; i++ {

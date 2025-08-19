@@ -71,6 +71,16 @@ function start_service() {
     go run $ENTRY_FILE --config-file=$CONFIG_FILE
 }
 
+# Start worker
+function start_worker() {
+    infra up -d
+    setup_env_variables
+    ENTRY_FILE="$ROOT_DIR/cmd/worker/main.go"
+    
+    echo "Starting app with config file: $CONFIG_FILE"
+    go run $ENTRY_FILE --config-file=$CONFIG_FILE
+}
+
 # Start infra
 function start_infra() {
     infra up -d
@@ -88,6 +98,9 @@ function migrate() {
 case $1 in
     start_service)
         start_service
+    ;;
+    start_worker)
+        start_worker
     ;;
     lint)
         lint

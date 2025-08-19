@@ -2,7 +2,6 @@ package oms
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -85,8 +84,6 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	order.UpdateAddOrder(addOrder)
 	s.AddOrderToMap(order)
 
-	// report pending new
-	// s.orderGateway.OnOrderReport(ctx, order)
 	results := s.orderbookManager.AddOrder(&orderbook.Order{
 		ID:          order.OrderID,
 		Symbol:      order.Symbol,
@@ -98,8 +95,7 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	})
 
 	// book success -> change pending new to new
-	order.Status = model.OrderStatusNew
-	s.eventstore.AddEvent(model.NewOrderEventNewOrder(order.OrderID, order.GatewayID, time.Now()))
+	s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
 	s.processMatchResult(results)
@@ -107,9 +103,9 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	return nil
 }
 
-func (s *OMS) CancelOrder(ctx context.Context, gatewayID, origGatewayID string) error {
+func (s *OMS) CancelOrder(ctx context.Context, cancelOrder *model.CancelOrder) error {
 	// todo: check riskrule
-	orderID := s.eventstore.GetOrderID(origGatewayID)
+	orderID := s.eventstore.GetOrderID(cancelOrder.OrigGatewayID)
 	order, err := s.GetOrderByOrderID(orderID)
 	if err != nil {
 		return errGatewayIDNotFound
@@ -121,9 +117,8 @@ func (s *OMS) CancelOrder(ctx context.Context, gatewayID, origGatewayID string) 
 
 	err = s.orderbookManager.CancelOrder(order.Symbol, order.OrderID)
 	_ = err
-	order.Status = model.OrderStatusCanceled
-	order.LeavesQuantity = 0
-	s.eventstore.AddEvent(model.NewOrderEventCancel(order.OrderID, order.GatewayID, order.OrigGatewayID, time.Now()))
+	order.UpdateCancelOrder(cancelOrder)
+	s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
 	return nil
@@ -131,9 +126,6 @@ func (s *OMS) CancelOrder(ctx context.Context, gatewayID, origGatewayID string) 
 
 func (s *OMS) ModifyOrder(ctx context.Context, modifyOrder *model.ModifyOrder) error {
 	// todo: check riskrule
-	if modifyOrder.NewQuantity.IntPart() == 600 {
-		fmt.Println("aaaa")
-	}
 	orderID := s.eventstore.GetOrderID(modifyOrder.OrigGatewayID)
 	order, err := s.GetOrderByOrderID(orderID)
 	if err != nil {
@@ -147,13 +139,8 @@ func (s *OMS) ModifyOrder(ctx context.Context, modifyOrder *model.ModifyOrder) e
 	newPrice, newQty := modifyOrder.NewPrice.InexactFloat64(), modifyOrder.NewQuantity.IntPart()
 	results, err := s.orderbookManager.ModifyOrder(order.Symbol, order.OrderID, newPrice, newQty)
 	_ = err
-	// order.Status = model.OrderStatusReplaced
-	// order.GatewayID = modifyOrder.GatewayID
-	// order.OrigGatewayID = modifyOrder.OrigGatewayID
-	// order.Price = newPrice
-	// order.Quantity = newQty
 	order.UpdateModifyOrder(modifyOrder)
-	s.eventstore.AddEvent(model.NewOrderEventCancelReplace(order.OrderID, order.GatewayID, order.OrigGatewayID, newPrice, newQty, time.Now()))
+	s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
 	s.processMatchResult(results)
@@ -177,6 +164,7 @@ func (s *OMS) processMatchResult(results []*orderbook.MatchResult) {
 		}
 
 		order.UpdateMatchResult(r)
+		s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
 		s.orderGateway.OnOrderReport(context.Background(), order)
 
 		counterOrder, err := s.GetOrderByOrderID(r.CounterOrderID)
@@ -186,6 +174,7 @@ func (s *OMS) processMatchResult(results []*orderbook.MatchResult) {
 		}
 
 		counterOrder.UpdateMatchResult(r)
+		s.eventstore.AddEvent(model.NewOrderEvent(counterOrder, time.Now()))
 		s.orderGateway.OnOrderReport(context.Background(), counterOrder)
 	}
 }

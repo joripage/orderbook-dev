@@ -10,7 +10,11 @@
       "request": "launch",
       "mode": "debug",
       "program": "${workspaceFolder}/cmd/oms/main.go",
-      "args": []
+      "envFile": "${workspaceFolder}/build/.base.env",
+      "args": [
+        "-config-file",
+        "${workspaceFolder}/build/config.yaml"
+      ]
     },
     {
       "name": "Launch Worker",

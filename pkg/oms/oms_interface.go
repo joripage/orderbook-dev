@@ -9,5 +9,5 @@ import (
 type IOMS interface {
 	AddOrder(ctx context.Context, addOrder *model.AddOrder) error
 	ModifyOrder(ctx context.Context, modifyOrder *model.ModifyOrder) error
-	CancelOrder(ctx context.Context, gatewayID, origGatewayID string) error
+	CancelOrder(ctx context.Context, cancelOrder *model.CancelOrder) error
 }

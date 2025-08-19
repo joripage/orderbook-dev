@@ -1,9 +1,12 @@
 package eventstore
 
 import (
+	"context"
+	"encoding/json"
 	"sync"
 
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
+	"github.com/nats-io/nats.go"
 )
 
 type InMemoryEventStore struct {
@@ -13,18 +16,21 @@ type InMemoryEventStore struct {
 	orderIDToLatestGatewayID map[string]string // orderID -> current gatewayID
 	gatewayIDToOrigGatewayID map[string]string // gatewayID -> origGatewayID
 
-	// js      jetstream.JetStream // todo
-	// subject string // todo
+	js      nats.JetStreamContext // todo
+	subject string                // todo
 }
 
 func NewInMemoryEventStore() *InMemoryEventStore {
+	nc, _ := nats.Connect(nats.DefaultURL)
+	js, _ := nc.JetStream()
 	return &InMemoryEventStore{
 		orders:                   make(map[string][]*model.OrderEvent),
 		gatewayIDToOrderID:       make(map[string]string),
 		orderIDToLatestGatewayID: make(map[string]string),
 		gatewayIDToOrigGatewayID: make(map[string]string),
-		// js:      js,
-		// subject: subject,
+		js:                       js,
+		subject:                  "ORDERS.*",
+		// []string{"ORDERS.*"}
 	}
 }
 
@@ -37,6 +43,8 @@ func (s *InMemoryEventStore) AddEvent(ev *model.OrderEvent) {
 
 	// update ClOrdID chain
 	s.TrackClOrdChain(ev.OrderID, ev.GatewayID, ev.OrigGatewayID)
+
+	s.publish(context.Background(), *ev)
 }
 
 // TrackClOrdChain updates the chain between ClOrdID and OrigClOrdID
@@ -86,4 +94,10 @@ func (s *InMemoryEventStore) ReconstructChain(gatewayID string) []string {
 		curr = s.gatewayIDToOrigGatewayID[curr]
 	}
 	return chain
+}
+
+func (s *InMemoryEventStore) publish(ctx context.Context, ev model.OrderEvent) error {
+	data, _ := json.Marshal(ev)
+	_, err := s.js.Publish("ORDERS.events", data)
+	return err
 }
