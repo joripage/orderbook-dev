@@ -256,10 +256,10 @@ func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelReq
 		ClOrderID:         clOrdID,
 		Account:           account,
 		Symbol:            symbol,
-		Side:              string(side),
+		Side:              side,
 		TransactTime:      transactTime,
 		MaturityMonthYear: maturityMonthYear,
-		SecurityType:      string(securityType),
+		SecurityType:      securityType,
 		SecurityID:        securityID,
 	}
 	a.fixGateway.CancelOrder(context.Background(), m)
@@ -276,46 +276,40 @@ func (a *Application) onOrderCancelReplaceRequest(msg ordercancelreplacerequest.
 	// deliverToCompID, _ := msg.GetDeliverToCompID()
 	// msgSeqNum, _ := msg.GetMsgSeqNum()
 
-	// origClOrderID, _ := msg.GetOrigClOrdID()
-	// clOrderID, _ := msg.GetClOrdID()
-	// account, _ := msg.GetAccount()
-	// symbol, _ := msg.GetSymbol()
-	// side, _ := msg.GetSide()
-	// transactTime, _ := msg.GetTransactTime()
-	// orderQty, _ := msg.GetOrderQty()
-	// ordType, _ := msg.GetOrdType()
-	// price, _ := msg.GetPrice()
-	// timeInForce, _ := msg.GetTimeInForce()
-	// maturityMonthYear, _ := msg.GetMaturityMonthYear()
-	// securityType, _ := msg.GetSecurityType()
-	// securityID, _ := msg.GetSecurityID()
+	origClOrderID, _ := msg.GetOrigClOrdID()
+	clOrderID, _ := msg.GetClOrdID()
+	account, _ := msg.GetAccount()
+	symbol, _ := msg.GetSymbol()
+	side, _ := msg.GetSide()
+	transactTime, _ := msg.GetTransactTime()
+	orderQty, _ := msg.GetOrderQty()
+	ordType, _ := msg.GetOrdType()
+	price, _ := msg.GetPrice()
+	timeInForce, _ := msg.GetTimeInForce()
+	maturityMonthYear, _ := msg.GetMaturityMonthYear()
+	securityType, _ := msg.GetSecurityType()
+	securityID, _ := msg.GetSecurityID()
 
-	// m := model.OrderCancelReplaceRequest{
-	// 	OrigClOrderID:     origClOrderID,
-	// 	ClOrderID:         clOrderID,
-	// 	Account:           account,
-	// 	Symbol:            symbol,
-	// 	Side:              string(side),
-	// 	TransactTime:      transactTime,
-	// 	OrderQty:          orderQty,
-	// 	OrdType:           string(ordType),
-	// 	Price:             price,
-	// 	TimeInForce:       string(timeInForce),
-	// 	MaturityMonthYear: maturityMonthYear,
-	// 	SecurityType:      string(securityType),
-	// 	SecurityID:        securityID,
-
-	// 	SenderCompID:     senderCompID,
-	// 	SenderSubID:      senderSubID,
-	// 	TargetCompID:     targetCompID,
-	// 	OnBehalfOfCompID: onBehalfOfCompID,
-	// 	DeliverToCompID:  deliverToCompID,
-	// 	MsgSeqNum:        msgSeqNum,
-	// }
+	m := &OrderCancelReplaceRequest{
+		OrigClOrderID:     origClOrderID,
+		ClOrderID:         clOrderID,
+		Account:           account,
+		Symbol:            symbol,
+		Side:              side,
+		TransactTime:      transactTime,
+		OrderQty:          orderQty,
+		OrdType:           ordType,
+		Price:             price,
+		TimeInForce:       timeInForce,
+		MaturityMonthYear: maturityMonthYear,
+		SecurityType:      securityType,
+		SecurityID:        securityID,
+	}
 	// err := a.oms.OnOrderCancelReplaceRequest(m)
 	// if err != nil {
 	// 	a.logger.Error("OnOrderCancelReplaceRequest", "error", err)
 	// }
+	a.fixGateway.ModifyOrder(context.Background(), m)
 
 	return nil
 }

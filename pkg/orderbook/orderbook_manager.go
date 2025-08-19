@@ -32,6 +32,11 @@ func (s *OrderBookManager) CancelOrder(symbol, orderID string) error {
 	return book.cancelOrder(orderID)
 }
 
+func (s *OrderBookManager) ModifyOrder(symbol, orderID string, newPrice float64, newQty int64) error {
+	book := s.getOrCreateBook(symbol)
+	return book.modifyOrder(orderID, newPrice, newQty)
+}
+
 func (s *OrderBookManager) RegisterTradeCallback(cb func([]MatchResult)) {
 	s.callbacks = append(s.callbacks, cb)
 

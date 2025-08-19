@@ -75,6 +75,7 @@ func orderReportToExecutionReport(order *model.Order) quickfix.Messagable {
 	)
 
 	execReportMsg.SetClOrdID(order.GatewayID)
+	execReportMsg.SetOrigClOrdID(order.OrigGatewayID)
 	execReportMsg.SetAccount(order.Account)
 	execReportMsg.SetAccountType(enum.AccountType(order.Account))
 	execReportMsg.SetOrderQty(decimal.NewFromInt(order.Quantity), 0)
@@ -101,6 +102,9 @@ func orderReportToExecutionReport(order *model.Order) quickfix.Messagable {
 	case model.OrderStatusCanceled:
 		execReportMsg.SetExecType(enum.ExecType_CANCELED)
 		execReportMsg.SetOrdStatus(enum.OrdStatus_CANCELED)
+	case model.OrderStatusReplaced:
+		execReportMsg.SetExecType(enum.ExecType_REPLACED)
+		execReportMsg.SetOrdStatus(enum.OrdStatus_REPLACED)
 	}
 
 	// execReportMsg.SetTargetCompID(newOrderSingle.SenderCompID)

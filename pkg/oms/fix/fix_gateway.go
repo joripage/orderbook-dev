@@ -95,8 +95,13 @@ func (s *FixGateway) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 	})
 }
 
-func (s *FixGateway) ModifyOrder(ctx context.Context) {
+func (s *FixGateway) ModifyOrder(ctx context.Context, req *OrderCancelReplaceRequest) {
 
+	s.omsInstance.ModifyOrder(ctx,
+		req.ClOrderID,
+		req.OrigClOrderID,
+		req.Price.InexactFloat64(),
+		req.OrderQty.IntPart())
 }
 
 func (s *FixGateway) CancelOrder(ctx context.Context, orderCancelRequest *OrderCancelRequest) {

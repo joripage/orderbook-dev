@@ -4,7 +4,9 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 
+	eventstore "github.com/joripage/orderbook-dev/pkg/oms/event_store"
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	riskrule "github.com/joripage/orderbook-dev/pkg/oms/risk_rule"
 	"github.com/joripage/orderbook-dev/pkg/orderbook"
@@ -13,6 +15,7 @@ import (
 type OMS struct {
 	orderGateway     OrderGateway
 	orderbookManager *orderbook.OrderBookManager
+	eventstore       eventstore.EventStore
 
 	orderIDMapping   sync.Map
 	gatewayIDMapping sync.Map
@@ -30,6 +33,7 @@ func NewOMS(orderGateway OrderGateway) *OMS {
 	oms := &OMS{
 		orderGateway:     orderGateway,
 		orderbookManager: orderbookManager,
+		eventstore:       eventstore.NewInMemoryEventStore(),
 	}
 
 	cb := func(results []orderbook.MatchResult) {
@@ -71,6 +75,11 @@ func (s *OMS) Start(ctx context.Context) {
 
 func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	// todo: check riskrule
+	oldOrder, _ := s.GetOrderByGatewayID(addOrder.ID)
+	if oldOrder != nil {
+		return errDuplicateOrder
+	}
+
 	order := &model.Order{}
 	order.UpdateAddOrder(addOrder)
 	s.AddOrderToMap(order)
@@ -89,6 +98,7 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 
 	// book success -> change pending new to new
 	order.Status = model.OrderStatusNew
+	s.eventstore.AddEvent(model.NewOrderEventNewOrder(order.OrderID, order.GatewayID, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
 	return nil
@@ -101,9 +111,34 @@ func (s *OMS) CancelOrder(ctx context.Context, gatewayID string) error {
 		return errGatewayIDNotFound
 	}
 
+	if !order.CanCancel() {
+		return errInvalidOrderStatus
+	}
+
 	err = s.orderbookManager.CancelOrder(order.Symbol, order.OrderID)
 	_ = err
 	order.Status = model.OrderStatusCanceled
+	s.eventstore.AddEvent(model.NewOrderEventCancel(order.OrderID, order.GatewayID, order.OrigGatewayID, time.Now()))
+	s.orderGateway.OnOrderReport(ctx, order)
+
+	return nil
+}
+
+func (s *OMS) ModifyOrder(ctx context.Context, gatewayID, origGatewayID string, newPrice float64, newQty int64) error {
+	// todo: check riskrule
+	order, err := s.GetOrderByGatewayID(origGatewayID)
+	if err != nil {
+		return errGatewayIDNotFound
+	}
+
+	if !order.CanModify() {
+		return errInvalidOrderStatus
+	}
+
+	err = s.orderbookManager.ModifyOrder(order.Symbol, order.OrderID, newPrice, newQty)
+	_ = err
+	order.Status = model.OrderStatusReplaced
+	s.eventstore.AddEvent(model.NewOrderEventCancelReplace(order.OrderID, order.GatewayID, order.OrigGatewayID, newPrice, newQty, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
 	return nil

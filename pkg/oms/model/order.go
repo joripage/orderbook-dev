@@ -97,6 +97,7 @@ type Order struct {
 
 	// calculated info
 	ExecID         string
+	LastExecID     string
 	OrderID        string
 	Status         OrderStatus
 	ExecType       OrderExecType
@@ -105,6 +106,7 @@ type Order struct {
 	LastQuantity   int64
 	LastPrice      float64
 	AvgPrice       float64
+	LastUpdate     time.Time
 }
 
 func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
@@ -148,5 +150,33 @@ func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
 	if s.LeavesQuantity == 0 {
 		s.Status = OrderStatusFilled
 	}
+	s.LastExecID = s.ExecID
 	s.ExecID = misc.RandSeq(constant.ID_LENGTH)
+	s.LastUpdate = time.Now()
+}
+
+func (s *Order) ToCancel() {
+	s.Status = OrderStatusCanceled
+	s.LeavesQuantity = 0
+	s.LastExecID = s.ExecID
+	s.ExecID = misc.RandSeq(constant.ID_LENGTH)
+	s.LastUpdate = time.Now()
+}
+
+func (s *Order) CanCancel() bool {
+	switch s.Status {
+	case OrderStatusNew, OrderStatusPartiallyFilled, OrderStatusPendingNew, OrderStatusPendingReplace, OrderStatusPendingCancel:
+		return true
+	}
+
+	return false
+}
+
+func (s *Order) CanModify() bool {
+	switch s.Status {
+	case OrderStatusNew, OrderStatusPartiallyFilled, OrderStatusPendingNew, OrderStatusPendingReplace, OrderStatusPendingCancel:
+		return true
+	}
+
+	return false
 }

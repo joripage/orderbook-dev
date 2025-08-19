@@ -20,6 +20,8 @@ type NewOrderSingle struct {
 	AccountType       enum.AccountType
 	ClOrdID           string
 	Symbol            string
+	SecurityID        string
+	SecurityType      enum.SecurityType
 	OrdType           enum.OrdType
 	Price             decimal.Decimal
 	TimeInForce       enum.TimeInForce
@@ -27,9 +29,8 @@ type NewOrderSingle struct {
 	TransactTime      time.Time
 	OrderQty          decimal.Decimal
 	MaturityMonthYear string
-	SecurityType      enum.SecurityType
-	SecurityID        string
-	MaxFloor          decimal.Decimal
+
+	MaxFloor decimal.Decimal
 }
 
 type OrderCancelRequest struct {
@@ -44,9 +45,32 @@ type OrderCancelRequest struct {
 	ClOrderID         string
 	Account           string
 	Symbol            string
-	Side              string
+	SecurityID        string
+	SecurityType      enum.SecurityType
+	Side              enum.Side
 	TransactTime      time.Time
 	MaturityMonthYear string
-	SecurityType      string
+}
+
+type OrderCancelReplaceRequest struct {
+	SessionID *quickfix.SessionID
+	// SenderCompID     string
+	// SenderSubID      string
+	// TargetCompID     string
+	// OnBehalfOfCompID string
+	// DeliverToCompID  string
+
+	OrigClOrderID     string
+	ClOrderID         string
+	Account           string
+	Symbol            string
 	SecurityID        string
+	SecurityType      enum.SecurityType
+	Side              enum.Side
+	TransactTime      time.Time
+	OrderQty          decimal.Decimal
+	OrdType           enum.OrdType
+	Price             decimal.Decimal
+	TimeInForce       enum.TimeInForce
+	MaturityMonthYear string
 }
