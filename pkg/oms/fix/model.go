@@ -41,8 +41,8 @@ type OrderCancelRequest struct {
 	// OnBehalfOfCompID string
 	// DeliverToCompID  string
 
-	OrigClOrderID     string
-	ClOrderID         string
+	OrigClOrdID       string
+	ClOrdID           string
 	Account           string
 	Symbol            string
 	SecurityID        string
@@ -60,8 +60,8 @@ type OrderCancelReplaceRequest struct {
 	// OnBehalfOfCompID string
 	// DeliverToCompID  string
 
-	OrigClOrderID     string
-	ClOrderID         string
+	OrigClOrdID       string
+	ClOrdID           string
 	Account           string
 	Symbol            string
 	SecurityID        string

@@ -8,75 +8,95 @@ import (
 
 func TestSimpleMatch(t *testing.T) {
 	ob := newOrderBook("test")
-	cb := func(results []MatchResult) {
-		if len(results) != 1 {
-			t.Fatalf("expected 1 match, got %d", len(results))
-		}
+	// cb := func(results []MatchResult) {
+	// 	if len(results) != 1 {
+	// 		t.Fatalf("expected 1 match, got %d", len(results))
+	// 	}
 
-		match := results[0]
-		if match.OrderID != "S1" || match.CounterOrderID != "B1" {
-			t.Errorf("incorrect order IDs in match: %+v", match)
-		}
-		if match.Qty != 10 || match.Price != 99.0 {
-			t.Errorf("incorrect qty/price: %+v", match)
-		}
-	}
-	ob.registerTradeCallback(cb)
+	// 	match := results[0]
+	// 	if match.OrderID != "S1" || match.CounterOrderID != "B1" {
+	// 		t.Errorf("incorrect order IDs in match: %+v", match)
+	// 	}
+	// 	if match.Qty != 10 || match.Price != 99.0 {
+	// 		t.Errorf("incorrect qty/price: %+v", match)
+	// 	}
+	// }
+	// ob.registerTradeCallback(cb)
 
 	buy := &Order{ID: "B1", Symbol: "ABC", Side: BUY, Price: 100.0, Qty: 10, Type: LIMIT}
 	sell := &Order{ID: "S1", Symbol: "ABC", Side: SELL, Price: 99.0, Qty: 10, Type: LIMIT}
 
 	// Add SELL first, then BUY — should match
 	ob.addOrder(sell)
-	ob.addOrder(buy)
+	results := ob.addOrder(buy)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(results))
+	}
+
+	match := results[0]
+	if match.OrderID != "S1" || match.CounterOrderID != "B1" {
+		t.Errorf("incorrect order IDs in match: %+v", match)
+	}
+	if match.Qty != 10 || match.Price != 99.0 {
+		t.Errorf("incorrect qty/price: %+v", match)
+	}
 
 }
 
 func TestNoMatchDueToPrice(t *testing.T) {
 	ob := newOrderBook("test")
-	cb := func(results []MatchResult) {
-		// if there is callback called -> there is trade match -> test failed
-		t.Fatalf("expected no match, got %d", len(results))
-	}
-	ob.registerTradeCallback(cb)
+	// cb := func(results []*MatchResult) {
+	// 	// if there is callback called -> there is trade match -> test failed
+	// 	t.Fatalf("expected no match, got %d", len(results))
+	// }
+	// ob.registerTradeCallback(cb)
 
 	buy := &Order{ID: "B1", Side: BUY, Price: 98.0, Qty: 10, Type: LIMIT}
 	sell := &Order{ID: "S1", Side: SELL, Price: 100.0, Qty: 10, Type: LIMIT}
 
 	ob.addOrder(sell)
-	ob.addOrder(buy)
+	results := ob.addOrder(buy)
+	if len(results) != 0 {
+		t.Errorf("expected no match, got %d", len(results))
+	}
 }
 
 func TestPartialMatch(t *testing.T) {
 	ob := newOrderBook("test")
-	cb := func(results []MatchResult) {
-		if len(results) != 1 {
-			t.Fatalf("expected 1 match, got %d", len(results))
-		}
-		if results[0].Qty != 5 {
-			t.Errorf("expected matched qty 5, got %d", results[0].Qty)
-		}
-	}
-	ob.registerTradeCallback(cb)
+	// cb := func(results []MatchResult) {
+	// 	if len(results) != 1 {
+	// 		t.Fatalf("expected 1 match, got %d", len(results))
+	// 	}
+	// 	if results[0].Qty != 5 {
+	// 		t.Errorf("expected matched qty 5, got %d", results[0].Qty)
+	// 	}
+	// }
+	// ob.registerTradeCallback(cb)
 
 	sell := &Order{ID: "S1", Side: SELL, Price: 100.0, Qty: 5, Type: LIMIT}
 	buy := &Order{ID: "B1", Side: BUY, Price: 101.0, Qty: 10, Type: LIMIT}
 
 	ob.addOrder(sell)
-	ob.addOrder(buy)
+	results := ob.addOrder(buy)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(results))
+	}
+	if results[0].Qty != 5 {
+		t.Errorf("expected matched qty 5, got %d", results[0].Qty)
+	}
 }
 
 func TestFIFOMatch(t *testing.T) {
 	ob := newOrderBook("test")
-	cb := func(results []MatchResult) {
-		if len(results) != 2 {
-			t.Fatalf("expected 2 matches, got %d", len(results))
-		}
-		if results[0].OrderID != "S1" || results[1].OrderID != "S2" {
-			t.Errorf("expected FIFO match order, got %+v", results)
-		}
-	}
-	ob.registerTradeCallback(cb)
+	// cb := func(results []MatchResult) {
+	// 	if len(results) != 2 {
+	// 		t.Fatalf("expected 2 matches, got %d", len(results))
+	// 	}
+	// 	if results[0].OrderID != "S1" || results[1].OrderID != "S2" {
+	// 		t.Errorf("expected FIFO match order, got %+v", results)
+	// 	}
+	// }
+	// ob.registerTradeCallback(cb)
 
 	// Add two SELLs at same price
 	s1 := &Order{ID: "S1", Side: SELL, Price: 100.0, Qty: 5, Type: LIMIT}
@@ -86,20 +106,26 @@ func TestFIFOMatch(t *testing.T) {
 
 	// BUY for total 10, should match in FIFO order: S1 then S2
 	buy := &Order{ID: "B1", Side: BUY, Price: 100.0, Qty: 10, Type: LIMIT}
-	ob.addOrder(buy)
+	results := ob.addOrder(buy)
+	if len(results) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(results))
+	}
+	if results[0].OrderID != "S1" || results[1].OrderID != "S2" {
+		t.Errorf("expected FIFO match order, got %+v", results)
+	}
 }
 
 func TestMultiLevelMatch(t *testing.T) {
 	ob := newOrderBook("test")
-	cb := func(results []MatchResult) {
-		if len(results) != 3 {
-			t.Fatalf("expected 3 matches, got %d", len(results))
-		}
-		if results[0].Price != 101.0 || results[2].Price != 103.0 {
-			t.Errorf("expected matching from best price, got %+v", results)
-		}
-	}
-	ob.registerTradeCallback(cb)
+	// cb := func(results []MatchResult) {
+	// 	if len(results) != 3 {
+	// 		t.Fatalf("expected 3 matches, got %d", len(results))
+	// 	}
+	// 	if results[0].Price != 101.0 || results[2].Price != 103.0 {
+	// 		t.Errorf("expected matching from best price, got %+v", results)
+	// 	}
+	// }
+	// ob.registerTradeCallback(cb)
 
 	// SELLs ở 3 mức giá tăng dần
 	sells := []*Order{
@@ -113,16 +139,22 @@ func TestMultiLevelMatch(t *testing.T) {
 
 	// BUY lệnh có giá cao hơn => khớp nhiều mức giá
 	buy := &Order{ID: "B1", Side: BUY, Price: 105.0, Qty: 15, Type: LIMIT}
-	ob.addOrder(buy)
+	results := ob.addOrder(buy)
+	if len(results) != 3 {
+		t.Fatalf("expected 3 matches, got %d", len(results))
+	}
+	if results[0].Price != 101.0 || results[2].Price != 103.0 {
+		t.Errorf("expected matching from best price, got %+v", results)
+	}
 }
 
 func TestHighVolumeOrders(t *testing.T) {
 	ob := newOrderBook("test")
 	trade := 0
-	cb := func(results []MatchResult) {
-		trade += 1
-	}
-	ob.registerTradeCallback(cb)
+	// cb := func(results []MatchResult) {
+	// 	trade += 1
+	// }
+	// ob.registerTradeCallback(cb)
 
 	num := 1_000_000
 	for i := 0; i < num; i++ {
@@ -137,7 +169,8 @@ func TestHighVolumeOrders(t *testing.T) {
 			Qty:   10,
 			Type:  LIMIT,
 		}
-		ob.addOrder(order)
+		results := ob.addOrder(order)
+		trade += len(results)
 	}
 
 	if trade != num/2 {

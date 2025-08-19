@@ -11,8 +11,8 @@ import (
 )
 
 type orderBooker interface {
-	addOrder(order *Order)
-	registerTradeCallback(fn func(result MatchResult))
+	addOrder(order *Order) []*MatchResult
+	registerTradeCallback(fn func(result *MatchResult))
 }
 
 type orderBookConfig struct {
@@ -38,7 +38,7 @@ type orderBook struct {
 
 	icebergMgr icebergHandler
 
-	callbacks []func([]MatchResult)
+	callbacks []func([]*MatchResult)
 
 	mu sync.Mutex
 }
@@ -68,11 +68,11 @@ func (ob *orderBook) setIcebergManager(im icebergHandler) {
 	ob.icebergMgr = im
 }
 
-func (ob *orderBook) addOrder(order *Order) {
+func (ob *orderBook) addOrder(order *Order) []*MatchResult {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
-	var results []MatchResult
+	var results []*MatchResult
 
 	switch order.Type {
 	case MARKET:
@@ -83,11 +83,12 @@ func (ob *orderBook) addOrder(order *Order) {
 		results = ob.executeIceberg(order)
 	}
 
-	if len(results) > 0 {
-		for _, cb := range ob.callbacks {
-			cb(results)
-		}
-	}
+	// if len(results) > 0 {
+	// 	for _, cb := range ob.callbacks {
+	// 		cb(results)
+	// 	}
+	// }
+	return results
 }
 
 func (ob *orderBook) cancelOrder(orderID string) error {
@@ -131,24 +132,26 @@ func (ob *orderBook) cancelOrder(orderID string) error {
 	return nil
 }
 
-func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64) error {
+func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64) ([]*MatchResult, error) {
 	ob.mu.Lock()
 
 	order, ok := ob.ordersByID[orderID]
 	if !ok {
-		return errOrderNotFound
+		ob.mu.Unlock()
+		return nil, errOrderNotFound
 	}
 
 	if order.Price == newPrice && newQty < order.Qty {
 		order.Qty = newQty
-		return nil
+		ob.mu.Unlock()
+		return nil, nil
 	}
 	ob.mu.Unlock()
 
 	// if quantity increased or price changed -> cancel then add new
 	err := ob.cancelOrder(orderID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	newOrder := &Order{
@@ -160,16 +163,16 @@ func (ob *orderBook) modifyOrder(orderID string, newPrice float64, newQty int64)
 		Type:        order.Type,
 		TimeInForce: order.TimeInForce,
 	}
-	ob.addOrder(newOrder)
+	results := ob.addOrder(newOrder)
 
-	return nil
+	return results, nil
 }
 
-func (ob *orderBook) registerTradeCallback(fn func(result []MatchResult)) {
+func (ob *orderBook) registerTradeCallback(fn func(result []*MatchResult)) {
 	ob.callbacks = append(ob.callbacks, fn)
 }
 
-func (ob *orderBook) executeMarket(order *Order) []MatchResult {
+func (ob *orderBook) executeMarket(order *Order) []*MatchResult {
 	order.Price = math.MaxFloat64 // price = MAX for Buy
 	if order.Side == SELL {
 		order.Price = 0 // price = 0 for Sell
@@ -178,8 +181,8 @@ func (ob *orderBook) executeMarket(order *Order) []MatchResult {
 	return ob.executeLimit(order)
 }
 
-func (ob *orderBook) executeLimit(order *Order) []MatchResult {
-	var results []MatchResult
+func (ob *orderBook) executeLimit(order *Order) []*MatchResult {
+	var results []*MatchResult
 	var sideBook, counterBook map[float64]*deque.Deque[*Order]
 	var sideHeap, counterHeap *PriceHeap
 	var priceCompare func(bookPrice, counterPrice float64) bool
@@ -231,7 +234,7 @@ func (ob *orderBook) executeLimit(order *Order) []MatchResult {
 	return results
 }
 
-func (ob *orderBook) executeIceberg(order *Order) []MatchResult {
+func (ob *orderBook) executeIceberg(order *Order) []*MatchResult {
 	// send iceberg order to IcebergManager and IcebergManager process itself
 	if ob.icebergMgr != nil {
 		ob.icebergMgr.addIceberg(order)
@@ -245,8 +248,8 @@ func (ob *orderBook) matchOrder(
 	counterHeap *PriceHeap,
 	priceCompare func(bookPrice, counterPrice float64) bool,
 	side Side,
-) []MatchResult {
-	var results []MatchResult
+) []*MatchResult {
+	var results []*MatchResult
 
 	for {
 		bestPrice, ok := counterHeap.Peek()
@@ -269,7 +272,7 @@ func (ob *orderBook) matchOrder(
 		best.Qty -= matchQty
 
 		// bestID come first, then orderID come after that -> orderID = bestID, counterID = orderID, side = side before
-		results = append(results, MatchResult{
+		results = append(results, &MatchResult{
 			OrderID:        best.ID,
 			CounterOrderID: order.ID,
 			Price:          bestPrice,

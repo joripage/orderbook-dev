@@ -31,15 +31,15 @@ func (im *icebergManager) addIceberg(order *Order) {
 	order.hiddenQty = order.Qty
 	im.orders[order.ID] = order
 
-	go im.sliceOnce(order)
+	// go im.sliceOnce(order)
 }
 
-func (im *icebergManager) sliceOnce(order *Order) {
+func (im *icebergManager) sliceOnce(order *Order) []*MatchResult {
 	if order.hiddenQty <= 0 {
 		im.mu.Lock()
 		delete(im.orders, order.ID)
 		im.mu.Unlock()
-		return
+		return nil
 	}
 
 	qty := order.VisibleQty
@@ -53,7 +53,7 @@ func (im *icebergManager) sliceOnce(order *Order) {
 		Symbol: order.Symbol, Side: order.Side, Price: order.Price,
 		Qty: qty, Type: LIMIT, TimeInForce: GTC,
 	}
-	im.book.addOrder(slice)
+	return im.book.addOrder(slice)
 }
 
 func (im *icebergManager) startScheduler() {
@@ -62,7 +62,12 @@ func (im *icebergManager) startScheduler() {
 		for range ticker.C {
 			im.mu.Lock()
 			for _, order := range im.orders {
-				im.sliceOnce(order)
+				results := im.sliceOnce(order)
+				if len(results) > 0 {
+					for _, cb := range im.book.callbacks {
+						cb(results)
+					}
+				}
 			}
 			im.mu.Unlock()
 		}

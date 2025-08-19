@@ -7,7 +7,7 @@ import (
 )
 
 type AddOrder struct {
-	ID           string
+	GatewayID    string
 	Account      string
 	Symbol       string
 	SecurityID   string
@@ -18,4 +18,11 @@ type AddOrder struct {
 	Side         OrderSide
 	TransactTime time.Time
 	Quantity     decimal.Decimal
+}
+
+type ModifyOrder struct {
+	NewPrice      decimal.Decimal
+	NewQuantity   decimal.Decimal
+	GatewayID     string
+	OrigGatewayID string
 }

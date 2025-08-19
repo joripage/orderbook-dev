@@ -252,8 +252,8 @@ func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelReq
 		// OnBehalfOfCompID: onBehalfOfCompID,
 		// DeliverToCompID:  deliverToCompID,
 
-		OrigClOrderID:     origClOrdID,
-		ClOrderID:         clOrdID,
+		OrigClOrdID:       origClOrdID,
+		ClOrdID:           clOrdID,
 		Account:           account,
 		Symbol:            symbol,
 		Side:              side,
@@ -291,8 +291,10 @@ func (a *Application) onOrderCancelReplaceRequest(msg ordercancelreplacerequest.
 	securityID, _ := msg.GetSecurityID()
 
 	m := &OrderCancelReplaceRequest{
-		OrigClOrderID:     origClOrderID,
-		ClOrderID:         clOrderID,
+		SessionID: &sessionID,
+
+		OrigClOrdID:       origClOrderID,
+		ClOrdID:           clOrderID,
 		Account:           account,
 		Symbol:            symbol,
 		Side:              side,

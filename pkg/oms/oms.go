@@ -2,6 +2,7 @@ package oms
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -36,35 +37,35 @@ func NewOMS(orderGateway OrderGateway) *OMS {
 		eventstore:       eventstore.NewInMemoryEventStore(),
 	}
 
-	cb := func(results []orderbook.MatchResult) {
-		for _, r := range results {
-			log.Printf("Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
-				r.OrderID, r.CounterOrderID, r.Price, r.Qty)
+	// cb := func(results []orderbook.MatchResult) {
+	// 	for _, r := range results {
+	// 		log.Printf("Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
+	// 			r.OrderID, r.CounterOrderID, r.Price, r.Qty)
 
-			totalMatchQty += r.Qty
-			totalMatchCount += 1
-			log.Printf("TotalMatchCount: %d, TotalMatchQty: %d\n", totalMatchCount, totalMatchQty)
+	// 		totalMatchQty += r.Qty
+	// 		totalMatchCount += 1
+	// 		log.Printf("TotalMatchCount: %d, TotalMatchQty: %d\n", totalMatchCount, totalMatchQty)
 
-			order, err := oms.GetOrderByOrderID(r.OrderID)
-			if err != nil {
-				log.Printf("match orderID=%s not found", r.OrderID)
-				continue
-			}
+	// 		order, err := oms.GetOrderByOrderID(r.OrderID)
+	// 		if err != nil {
+	// 			log.Printf("match orderID=%s not found", r.OrderID)
+	// 			continue
+	// 		}
 
-			order.UpdateMatchResult(&r)
-			oms.orderGateway.OnOrderReport(context.Background(), order)
+	// 		order.UpdateMatchResult(&r)
+	// 		oms.orderGateway.OnOrderReport(context.Background(), order)
 
-			counterOrder, err := oms.GetOrderByOrderID(r.CounterOrderID)
-			if err != nil {
-				log.Printf("match counterOrderID=%s not found", r.CounterOrderID)
-				continue
-			}
+	// 		counterOrder, err := oms.GetOrderByOrderID(r.CounterOrderID)
+	// 		if err != nil {
+	// 			log.Printf("match counterOrderID=%s not found", r.CounterOrderID)
+	// 			continue
+	// 		}
 
-			counterOrder.UpdateMatchResult(&r)
-			oms.orderGateway.OnOrderReport(context.Background(), counterOrder)
-		}
-	}
-	oms.orderbookManager.RegisterTradeCallback(cb)
+	// 		counterOrder.UpdateMatchResult(&r)
+	// 		oms.orderGateway.OnOrderReport(context.Background(), counterOrder)
+	// 	}
+	// }
+	// oms.orderbookManager.RegisterTradeCallback(cb)
 
 	return oms
 }
@@ -75,8 +76,8 @@ func (s *OMS) Start(ctx context.Context) {
 
 func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	// todo: check riskrule
-	oldOrder, _ := s.GetOrderByGatewayID(addOrder.ID)
-	if oldOrder != nil {
+	orderID := s.eventstore.GetLatestClOrdID(addOrder.GatewayID)
+	if orderID != "" {
 		return errDuplicateOrder
 	}
 
@@ -86,7 +87,7 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 
 	// report pending new
 	// s.orderGateway.OnOrderReport(ctx, order)
-	s.orderbookManager.AddOrder(&orderbook.Order{
+	results := s.orderbookManager.AddOrder(&orderbook.Order{
 		ID:          order.OrderID,
 		Symbol:      order.Symbol,
 		Side:        orderbook.Side(order.Side),
@@ -101,12 +102,15 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	s.eventstore.AddEvent(model.NewOrderEventNewOrder(order.OrderID, order.GatewayID, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
+	s.processMatchResult(results)
+
 	return nil
 }
 
-func (s *OMS) CancelOrder(ctx context.Context, gatewayID string) error {
+func (s *OMS) CancelOrder(ctx context.Context, gatewayID, origGatewayID string) error {
 	// todo: check riskrule
-	order, err := s.GetOrderByGatewayID(gatewayID)
+	orderID := s.eventstore.GetOrderID(origGatewayID)
+	order, err := s.GetOrderByOrderID(orderID)
 	if err != nil {
 		return errGatewayIDNotFound
 	}
@@ -118,15 +122,20 @@ func (s *OMS) CancelOrder(ctx context.Context, gatewayID string) error {
 	err = s.orderbookManager.CancelOrder(order.Symbol, order.OrderID)
 	_ = err
 	order.Status = model.OrderStatusCanceled
+	order.LeavesQuantity = 0
 	s.eventstore.AddEvent(model.NewOrderEventCancel(order.OrderID, order.GatewayID, order.OrigGatewayID, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
 	return nil
 }
 
-func (s *OMS) ModifyOrder(ctx context.Context, gatewayID, origGatewayID string, newPrice float64, newQty int64) error {
+func (s *OMS) ModifyOrder(ctx context.Context, modifyOrder *model.ModifyOrder) error {
 	// todo: check riskrule
-	order, err := s.GetOrderByGatewayID(origGatewayID)
+	if modifyOrder.NewQuantity.IntPart() == 600 {
+		fmt.Println("aaaa")
+	}
+	orderID := s.eventstore.GetOrderID(modifyOrder.OrigGatewayID)
+	order, err := s.GetOrderByOrderID(orderID)
 	if err != nil {
 		return errGatewayIDNotFound
 	}
@@ -135,11 +144,48 @@ func (s *OMS) ModifyOrder(ctx context.Context, gatewayID, origGatewayID string, 
 		return errInvalidOrderStatus
 	}
 
-	err = s.orderbookManager.ModifyOrder(order.Symbol, order.OrderID, newPrice, newQty)
+	newPrice, newQty := modifyOrder.NewPrice.InexactFloat64(), modifyOrder.NewQuantity.IntPart()
+	results, err := s.orderbookManager.ModifyOrder(order.Symbol, order.OrderID, newPrice, newQty)
 	_ = err
-	order.Status = model.OrderStatusReplaced
+	// order.Status = model.OrderStatusReplaced
+	// order.GatewayID = modifyOrder.GatewayID
+	// order.OrigGatewayID = modifyOrder.OrigGatewayID
+	// order.Price = newPrice
+	// order.Quantity = newQty
+	order.UpdateModifyOrder(modifyOrder)
 	s.eventstore.AddEvent(model.NewOrderEventCancelReplace(order.OrderID, order.GatewayID, order.OrigGatewayID, newPrice, newQty, time.Now()))
 	s.orderGateway.OnOrderReport(ctx, order)
 
+	s.processMatchResult(results)
+
 	return nil
+}
+
+func (s *OMS) processMatchResult(results []*orderbook.MatchResult) {
+	for _, r := range results {
+		log.Printf("Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
+			r.OrderID, r.CounterOrderID, r.Price, r.Qty)
+
+		totalMatchQty += r.Qty
+		totalMatchCount += 1
+		log.Printf("TotalMatchCount: %d, TotalMatchQty: %d\n", totalMatchCount, totalMatchQty)
+
+		order, err := s.GetOrderByOrderID(r.OrderID)
+		if err != nil {
+			log.Printf("match orderID=%s not found", r.OrderID)
+			continue
+		}
+
+		order.UpdateMatchResult(r)
+		s.orderGateway.OnOrderReport(context.Background(), order)
+
+		counterOrder, err := s.GetOrderByOrderID(r.CounterOrderID)
+		if err != nil {
+			log.Printf("match counterOrderID=%s not found", r.CounterOrderID)
+			continue
+		}
+
+		counterOrder.UpdateMatchResult(r)
+		s.orderGateway.OnOrderReport(context.Background(), counterOrder)
+	}
 }

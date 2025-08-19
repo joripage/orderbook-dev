@@ -31,14 +31,9 @@ func (a *InitiatorApp) OnCreate(sessionID quickfix.SessionID) {
 func (a *InitiatorApp) OnLogon(sessionID quickfix.SessionID) {
 	log.Println("Logon success")
 
-	// go sendMessageMatchLimitSoftly(sessionID)
-	// go sendMessageMatchLimit(sessionID)
-	// go sendMessageMatchLimit44(sessionID)
-	// sendMessageMatchMarket(sessionID)
-	// sendMessageMatchAmend(sessionID)
-	// sendMessageCancelOrder(sessionID)
+	go sendMessageMatchLimit44(sessionID)
 	// go sendMessageCancelOrder44(sessionID)
-	go sendMessageMatchAmend44(sessionID)
+	// go sendMessageMatchAmend44(sessionID)
 }
 
 func (a *InitiatorApp) OnLogout(sessionID quickfix.SessionID)                       {}
@@ -465,6 +460,10 @@ func sendMessageMatchAmend44(sessionID quickfix.SessionID) {
 	log.Println(err)
 
 	orderSellID := randSeq(17)
+	orderSellReplaceDecreaseQtyID := randSeq(17)
+	orderSellReplaceIncreaseQtyID := randSeq(17)
+	orderSellReplaceBothPriceAndQtyID := randSeq(17)
+
 	orderSell := fix44nos.New(
 		field.NewClOrdID(orderSellID),
 		field.NewSide(enum.Side_SELL),
@@ -481,20 +480,60 @@ func sendMessageMatchAmend44(sessionID quickfix.SessionID) {
 
 	go func() {
 		select { // nolint
-		case <-time.After(5 * time.Second):
-			orderSellReplace := fix44ocrr.New(
+		case <-time.After(1 * time.Second):
+			orderSellReplaceDecreaseQty := fix44ocrr.New(
 				field.NewOrigClOrdID(orderSellID),
-				field.NewClOrdID(randSeq(17)),
+				field.NewClOrdID(orderSellReplaceDecreaseQtyID),
 				field.NewSide(enum.Side_SELL),
 				field.NewTransactTime(time.Now()),
 				field.NewOrdType(enum.OrdType_LIMIT))
-			orderSellReplace.SetAccount("011C399157")
-			orderSellReplace.SetPrice(decimal.NewFromInt(13000), 0)
-			orderSellReplace.SetOrderQty(decimal.NewFromInt(500), 0)
-			orderSellReplace.SetTimeInForce("0")
-			orderSellReplace.SetSenderCompID(sessionID.SenderCompID)
-			orderSellReplace.SetTargetCompID(sessionID.TargetCompID)
-			err = quickfix.Send(orderSellReplace)
+			orderSellReplaceDecreaseQty.SetAccount("011C399157")
+			orderSellReplaceDecreaseQty.SetPrice(decimal.NewFromInt(13500), 0)
+			orderSellReplaceDecreaseQty.SetOrderQty(decimal.NewFromInt(200), 0)
+			orderSellReplaceDecreaseQty.SetTimeInForce("0")
+			orderSellReplaceDecreaseQty.SetSenderCompID(sessionID.SenderCompID)
+			orderSellReplaceDecreaseQty.SetTargetCompID(sessionID.TargetCompID)
+			err = quickfix.Send(orderSellReplaceDecreaseQty)
+			log.Println(err)
+		}
+	}()
+
+	go func() {
+		select { // nolint
+		case <-time.After(2 * time.Second):
+			orderSellReplaceIncreaseQty := fix44ocrr.New(
+				field.NewOrigClOrdID(orderSellReplaceDecreaseQtyID),
+				field.NewClOrdID(orderSellReplaceIncreaseQtyID),
+				field.NewSide(enum.Side_SELL),
+				field.NewTransactTime(time.Now()),
+				field.NewOrdType(enum.OrdType_LIMIT))
+			orderSellReplaceIncreaseQty.SetAccount("011C399157")
+			orderSellReplaceIncreaseQty.SetPrice(decimal.NewFromInt(13500), 0)
+			orderSellReplaceIncreaseQty.SetOrderQty(decimal.NewFromInt(400), 0)
+			orderSellReplaceIncreaseQty.SetTimeInForce("0")
+			orderSellReplaceIncreaseQty.SetSenderCompID(sessionID.SenderCompID)
+			orderSellReplaceIncreaseQty.SetTargetCompID(sessionID.TargetCompID)
+			err = quickfix.Send(orderSellReplaceIncreaseQty)
+			log.Println(err)
+		}
+	}()
+
+	go func() {
+		select { // nolint
+		case <-time.After(4 * time.Second):
+			orderSellReplaceBothPriceAndQty := fix44ocrr.New(
+				field.NewOrigClOrdID(orderSellReplaceIncreaseQtyID),
+				field.NewClOrdID(orderSellReplaceBothPriceAndQtyID),
+				field.NewSide(enum.Side_SELL),
+				field.NewTransactTime(time.Now()),
+				field.NewOrdType(enum.OrdType_LIMIT))
+			orderSellReplaceBothPriceAndQty.SetAccount("011C399157")
+			orderSellReplaceBothPriceAndQty.SetPrice(decimal.NewFromInt(13000), 0)
+			orderSellReplaceBothPriceAndQty.SetOrderQty(decimal.NewFromInt(600), 0)
+			orderSellReplaceBothPriceAndQty.SetTimeInForce("0")
+			orderSellReplaceBothPriceAndQty.SetSenderCompID(sessionID.SenderCompID)
+			orderSellReplaceBothPriceAndQty.SetTargetCompID(sessionID.TargetCompID)
+			err = quickfix.Send(orderSellReplaceBothPriceAndQty)
 			log.Println(err)
 		}
 	}()

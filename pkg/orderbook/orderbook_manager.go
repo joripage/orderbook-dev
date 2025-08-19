@@ -11,7 +11,7 @@ type OrderBookManagerConfig struct {
 
 type OrderBookManager struct {
 	books     sync.Map
-	callbacks []func([]MatchResult)
+	callbacks []func([]*MatchResult)
 	cfg       *OrderBookManagerConfig
 }
 
@@ -22,9 +22,15 @@ func NewOrderBookManager(cfg *OrderBookManagerConfig) *OrderBookManager {
 	}
 }
 
-func (s *OrderBookManager) AddOrder(order *Order) {
+func (s *OrderBookManager) AddOrder(order *Order) []*MatchResult {
 	book := s.getOrCreateBook(order.Symbol)
-	book.addOrder(order)
+	results := book.addOrder(order)
+	// if len(results) > 0 {
+	// 	for _, cb := range book.callbacks {
+	// 		cb(results)
+	// 	}
+	// }
+	return results
 }
 
 func (s *OrderBookManager) CancelOrder(symbol, orderID string) error {
@@ -32,12 +38,12 @@ func (s *OrderBookManager) CancelOrder(symbol, orderID string) error {
 	return book.cancelOrder(orderID)
 }
 
-func (s *OrderBookManager) ModifyOrder(symbol, orderID string, newPrice float64, newQty int64) error {
+func (s *OrderBookManager) ModifyOrder(symbol, orderID string, newPrice float64, newQty int64) ([]*MatchResult, error) {
 	book := s.getOrCreateBook(symbol)
 	return book.modifyOrder(orderID, newPrice, newQty)
 }
 
-func (s *OrderBookManager) RegisterTradeCallback(cb func([]MatchResult)) {
+func (s *OrderBookManager) RegisterTradeCallback(cb func([]*MatchResult)) {
 	s.callbacks = append(s.callbacks, cb)
 
 	// apply callback to all books

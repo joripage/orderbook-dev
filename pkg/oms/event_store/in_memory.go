@@ -7,19 +7,21 @@ import (
 )
 
 type InMemoryEventStore struct {
-	mu            sync.RWMutex
-	orders        map[string][]*model.OrderEvent
-	latestClOrdID map[string]string // OrderID -> current ClOrdID
-	clOrdChain    map[string]string // ClOrdID -> OrigClOrdID
+	mu                     sync.RWMutex
+	orders                 map[string][]*model.OrderEvent
+	clOrdIDToOrderID       map[string]string // clOrdID -> orderID
+	orderIDToLatestClOrdID map[string]string // OrderID -> current ClOrdID
+	clOrdToOrigClOrdID     map[string]string // ClOrdID -> OrigClOrdID
 	// js      jetstream.JetStream // todo
 	// subject string // todo
 }
 
 func NewInMemoryEventStore() *InMemoryEventStore {
 	return &InMemoryEventStore{
-		orders:        make(map[string][]*model.OrderEvent),
-		latestClOrdID: make(map[string]string),
-		clOrdChain:    make(map[string]string),
+		orders:                 make(map[string][]*model.OrderEvent),
+		clOrdIDToOrderID:       make(map[string]string),
+		orderIDToLatestClOrdID: make(map[string]string),
+		clOrdToOrigClOrdID:     make(map[string]string),
 		// js:      js,
 		// subject: subject,
 	}
@@ -39,19 +41,21 @@ func (s *InMemoryEventStore) AddEvent(ev *model.OrderEvent) {
 // TrackClOrdChain updates the chain between ClOrdID and OrigClOrdID
 func (s *InMemoryEventStore) TrackClOrdChain(orderID, clOrdID, origClOrdID string) {
 	// always set the latest ClOrdID
-	s.latestClOrdID[orderID] = clOrdID
+	s.orderIDToLatestClOrdID[orderID] = clOrdID
 
 	// if OrigClOrdID != "" -> create chain
 	if origClOrdID != "" {
-		s.clOrdChain[clOrdID] = origClOrdID
+		s.clOrdToOrigClOrdID[clOrdID] = origClOrdID
 	}
+
+	s.clOrdIDToOrderID[clOrdID] = orderID
 }
 
 func (s *InMemoryEventStore) GetLatestClOrdID(orderID string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.latestClOrdID[orderID]
+	return s.orderIDToLatestClOrdID[orderID]
 }
 
 // GetOrigClOrdID returns the immediate OrigClOrdID for a given ClOrdID
@@ -59,7 +63,14 @@ func (s *InMemoryEventStore) GetOrigClOrdID(clOrdID string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.clOrdChain[clOrdID]
+	return s.clOrdToOrigClOrdID[clOrdID]
+}
+
+func (s *InMemoryEventStore) GetOrderID(clOrdID string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.clOrdIDToOrderID[clOrdID]
 }
 
 // ReconstructChain walks backward to get full chain of ClOrdIDs
@@ -71,7 +82,7 @@ func (s *InMemoryEventStore) ReconstructChain(clOrdID string) []string {
 	curr := clOrdID
 	for curr != "" {
 		chain = append(chain, curr)
-		curr = s.clOrdChain[curr]
+		curr = s.clOrdToOrigClOrdID[curr]
 	}
 	return chain
 }

@@ -7,5 +7,6 @@ type EventStore interface {
 	TrackClOrdChain(orderID, clOrdID, origClOrdID string)
 	GetLatestClOrdID(orderID string) string
 	GetOrigClOrdID(clOrdID string) string
+	GetOrderID(clOrdID string) string
 	ReconstructChain(clOrdID string) []string
 }

@@ -81,7 +81,7 @@ func (s *FixGateway) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 	s.AddRequestToMap(newOrderSingle.ClOrdID, newOrderSingle.SessionID)
 
 	s.omsInstance.AddOrder(ctx, &model.AddOrder{
-		ID:         newOrderSingle.ClOrdID,
+		GatewayID:  newOrderSingle.ClOrdID,
 		Account:    newOrderSingle.Account,
 		Symbol:     newOrderSingle.Symbol,
 		SecurityID: newOrderSingle.SecurityID,
@@ -96,17 +96,21 @@ func (s *FixGateway) AddOrder(ctx context.Context, newOrderSingle *NewOrderSingl
 }
 
 func (s *FixGateway) ModifyOrder(ctx context.Context, req *OrderCancelReplaceRequest) {
+	s.AddRequestToMap(req.ClOrdID, req.SessionID)
 
 	s.omsInstance.ModifyOrder(ctx,
-		req.ClOrderID,
-		req.OrigClOrderID,
-		req.Price.InexactFloat64(),
-		req.OrderQty.IntPart())
+		&model.ModifyOrder{
+			NewPrice:      req.Price,
+			NewQuantity:   req.OrderQty,
+			GatewayID:     req.ClOrdID,
+			OrigGatewayID: req.OrigClOrdID,
+		})
 }
 
 func (s *FixGateway) CancelOrder(ctx context.Context, orderCancelRequest *OrderCancelRequest) {
-	s.AddRequestToMap(orderCancelRequest.ClOrderID, orderCancelRequest.SessionID)
-	s.omsInstance.CancelOrder(ctx, orderCancelRequest.OrigClOrderID)
+	s.AddRequestToMap(orderCancelRequest.ClOrdID, orderCancelRequest.SessionID)
+
+	s.omsInstance.CancelOrder(ctx, orderCancelRequest.ClOrdID, orderCancelRequest.OrigClOrdID)
 }
 
 func (s *FixGateway) OnOrderReport(ctx context.Context, args ...interface{}) {

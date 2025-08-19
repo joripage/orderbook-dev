@@ -112,7 +112,7 @@ type Order struct {
 func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 	qty := addOrder.Quantity.IntPart()
 	s.ID = misc.RandSeq(constant.ID_LENGTH)
-	s.GatewayID = addOrder.ID
+	s.GatewayID = addOrder.GatewayID
 	s.Symbol = addOrder.Symbol
 	s.SecurityID = addOrder.SecurityID
 	s.Exchange = addOrder.Exchange
@@ -134,6 +134,17 @@ func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 	s.LastQuantity = 0
 	s.LastPrice = 0
 	s.AvgPrice = 0
+}
+
+func (s *Order) UpdateModifyOrder(modifyOrder *ModifyOrder) {
+	s.Status = OrderStatusReplaced
+	s.GatewayID = modifyOrder.GatewayID
+	s.OrigGatewayID = modifyOrder.OrigGatewayID
+
+	newPrice, newQty := modifyOrder.NewPrice.InexactFloat64(), modifyOrder.NewQuantity.IntPart()
+	s.LeavesQuantity = s.LeavesQuantity + (newQty - s.Quantity)
+	s.Price = newPrice
+	s.Quantity = newQty
 }
 
 func (s *Order) UpdateMatchResult(match *orderbook.MatchResult) {
@@ -165,7 +176,7 @@ func (s *Order) ToCancel() {
 
 func (s *Order) CanCancel() bool {
 	switch s.Status {
-	case OrderStatusNew, OrderStatusPartiallyFilled, OrderStatusPendingNew, OrderStatusPendingReplace, OrderStatusPendingCancel:
+	case OrderStatusNew, OrderStatusPartiallyFilled, OrderStatusPendingNew, OrderStatusPendingReplace, OrderStatusPendingCancel, OrderStatusReplaced:
 		return true
 	}
 
@@ -174,7 +185,7 @@ func (s *Order) CanCancel() bool {
 
 func (s *Order) CanModify() bool {
 	switch s.Status {
-	case OrderStatusNew, OrderStatusPartiallyFilled, OrderStatusPendingNew, OrderStatusPendingReplace, OrderStatusPendingCancel:
+	case OrderStatusNew, OrderStatusPartiallyFilled, OrderStatusPendingNew, OrderStatusPendingReplace, OrderStatusPendingCancel, OrderStatusReplaced:
 		return true
 	}
 
