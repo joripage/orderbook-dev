@@ -9,8 +9,10 @@ import (
 )
 
 type AppConfig struct {
-	ServiceName string                           `yaml:"service_name"`
-	OmsDB       *postgres_wrapper.PostgresConfig `yaml:"oms_db"`
+	ServiceName    string                           `yaml:"service_name"`
+	ServiceVersion string                           `yaml:"service_version"`
+	Enviroment     string                           `yaml:"environment"`
+	OmsDB          *postgres_wrapper.PostgresConfig `yaml:"oms_db"`
 }
 
 // Load load config from file and environment variables.

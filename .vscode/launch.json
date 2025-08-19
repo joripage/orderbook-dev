@@ -13,6 +13,17 @@
       "args": []
     },
     {
+      "name": "Launch Worker",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/worker/main.go",
+      "args": [
+        "-config-file",
+        "${workspaceFolder}/build/config.yaml"
+      ]
+    },
+    {
       "name": "Launch Benchmark",
       "type": "go",
       "request": "launch",

@@ -9,7 +9,7 @@ import (
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/joripage/orderbook-dev/pkg/oms/repo"
 	_ "github.com/lib/pq"
-	"github.com/nats-io/nats.go/jetstream"
+	"github.com/nats-io/nats.go"
 )
 
 type Worker struct {
@@ -24,7 +24,7 @@ func NewWorker(repo repo.IRepo) *Worker {
 	}
 }
 
-func (w *Worker) StartConsumer(ctx context.Context, js jetstream.JetStream, subject, durable string) error {
+func (w *Worker) StartConsumer(ctx context.Context, js nats.JetStreamContext, subject, durable string) error {
 	// Create durable consumer
 	cons, err := js.PullSubscribe(subject, durable)
 	if err != nil {
@@ -40,7 +40,7 @@ func (w *Worker) StartConsumer(ctx context.Context, js jetstream.JetStream, subj
 
 		for _, msg := range msgs {
 			var ev *model.OrderEvent
-			if err := json.Unmarshal(msg.Data(), &ev); err != nil {
+			if err := json.Unmarshal(msg.Data, ev); err != nil {
 				log.Println("unmarshal err", err)
 				_ = msg.Ack()
 				continue

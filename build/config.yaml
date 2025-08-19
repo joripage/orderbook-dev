@@ -1,4 +1,3 @@
-# Config
 service_name: ${SERVICE_NAME}
 service_version: ${SERVICE_VERSION}
 environment: ${ENVIRONMENT}
