@@ -18,6 +18,7 @@
       "request": "launch",
       "mode": "debug",
       "program": "${workspaceFolder}/cmd/worker/main.go",
+      "envFile": "${workspaceFolder}/build/.base.env",
       "args": [
         "-config-file",
         "${workspaceFolder}/build/config.yaml"
