@@ -76,7 +76,7 @@ func (s *OMS) Start(ctx context.Context) {
 
 func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	// todo: check riskrule
-	orderID := s.eventstore.GetLatestClOrdID(addOrder.GatewayID)
+	orderID := s.eventstore.GetLatestGatewayID(addOrder.GatewayID)
 	if orderID != "" {
 		return errDuplicateOrder
 	}

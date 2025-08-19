@@ -7,21 +7,22 @@ import (
 )
 
 type InMemoryEventStore struct {
-	mu                     sync.RWMutex
-	orders                 map[string][]*model.OrderEvent
-	clOrdIDToOrderID       map[string]string // clOrdID -> orderID
-	orderIDToLatestClOrdID map[string]string // OrderID -> current ClOrdID
-	clOrdToOrigClOrdID     map[string]string // ClOrdID -> OrigClOrdID
+	mu                       sync.RWMutex
+	orders                   map[string][]*model.OrderEvent
+	gatewayIDToOrderID       map[string]string // gatewayID -> orderID
+	orderIDToLatestGatewayID map[string]string // orderID -> current gatewayID
+	gatewayIDToOrigGatewayID map[string]string // gatewayID -> origGatewayID
+
 	// js      jetstream.JetStream // todo
 	// subject string // todo
 }
 
 func NewInMemoryEventStore() *InMemoryEventStore {
 	return &InMemoryEventStore{
-		orders:                 make(map[string][]*model.OrderEvent),
-		clOrdIDToOrderID:       make(map[string]string),
-		orderIDToLatestClOrdID: make(map[string]string),
-		clOrdToOrigClOrdID:     make(map[string]string),
+		orders:                   make(map[string][]*model.OrderEvent),
+		gatewayIDToOrderID:       make(map[string]string),
+		orderIDToLatestGatewayID: make(map[string]string),
+		gatewayIDToOrigGatewayID: make(map[string]string),
 		// js:      js,
 		// subject: subject,
 	}
@@ -35,54 +36,54 @@ func (s *InMemoryEventStore) AddEvent(ev *model.OrderEvent) {
 	s.orders[ev.OrderID] = append(s.orders[ev.OrderID], ev)
 
 	// update ClOrdID chain
-	s.TrackClOrdChain(ev.OrderID, ev.ClOrdID, ev.OrigClOrdID)
+	s.TrackClOrdChain(ev.OrderID, ev.GatewayID, ev.OrigGatewayID)
 }
 
 // TrackClOrdChain updates the chain between ClOrdID and OrigClOrdID
-func (s *InMemoryEventStore) TrackClOrdChain(orderID, clOrdID, origClOrdID string) {
+func (s *InMemoryEventStore) TrackClOrdChain(orderID, gatewayID, origGatewayID string) {
 	// always set the latest ClOrdID
-	s.orderIDToLatestClOrdID[orderID] = clOrdID
+	s.orderIDToLatestGatewayID[orderID] = gatewayID
 
 	// if OrigClOrdID != "" -> create chain
-	if origClOrdID != "" {
-		s.clOrdToOrigClOrdID[clOrdID] = origClOrdID
+	if origGatewayID != "" {
+		s.gatewayIDToOrigGatewayID[gatewayID] = origGatewayID
 	}
 
-	s.clOrdIDToOrderID[clOrdID] = orderID
+	s.gatewayIDToOrderID[gatewayID] = orderID
 }
 
-func (s *InMemoryEventStore) GetLatestClOrdID(orderID string) string {
+func (s *InMemoryEventStore) GetLatestGatewayID(orderID string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.orderIDToLatestClOrdID[orderID]
+	return s.orderIDToLatestGatewayID[orderID]
 }
 
-// GetOrigClOrdID returns the immediate OrigClOrdID for a given ClOrdID
-func (s *InMemoryEventStore) GetOrigClOrdID(clOrdID string) string {
+// GetOrigGatewayID returns the immediate origGatewayID for a given gatewayID
+func (s *InMemoryEventStore) GetOrigGatewayID(gatewayID string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.clOrdToOrigClOrdID[clOrdID]
+	return s.gatewayIDToOrigGatewayID[gatewayID]
 }
 
-func (s *InMemoryEventStore) GetOrderID(clOrdID string) string {
+func (s *InMemoryEventStore) GetOrderID(gatewayID string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.clOrdIDToOrderID[clOrdID]
+	return s.gatewayIDToOrderID[gatewayID]
 }
 
 // ReconstructChain walks backward to get full chain of ClOrdIDs
-func (s *InMemoryEventStore) ReconstructChain(clOrdID string) []string {
+func (s *InMemoryEventStore) ReconstructChain(gatewayID string) []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var chain []string
-	curr := clOrdID
+	curr := gatewayID
 	for curr != "" {
 		chain = append(chain, curr)
-		curr = s.clOrdToOrigClOrdID[curr]
+		curr = s.gatewayIDToOrigGatewayID[curr]
 	}
 	return chain
 }

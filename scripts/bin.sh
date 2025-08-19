@@ -76,6 +76,14 @@ function start_infra() {
     infra up -d
 }
 
+function migrate() {
+    echo "Starting migration..."
+    infra up -d
+    setup_env_variables
+    ENTRY_FILE="$ROOT_DIR/cmd/migrate/main.go"
+    go run $ENTRY_FILE
+}
+
 # Main
 case $1 in
     start_service)
@@ -93,7 +101,10 @@ case $1 in
     start_infra)
         start_infra
     ;;
+    migrate)
+        migrate 
+    ;;
     *)
-        echo $0 "[start_service|lint|test|test_cover|start_infra]"
+        echo $0 "[start_service|lint|test|test_cover|start_infra|migrate]"
     ;;
 esac

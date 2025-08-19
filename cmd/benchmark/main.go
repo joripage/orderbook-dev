@@ -43,8 +43,24 @@ func main() {
 	})
 	totalMatched := 0
 	totalQty := int64(0)
-	cb := func(results []orderbook.MatchResult) {
-		// fmt.Println("cb", results)
+	// cb := func(results []*orderbook.MatchResult) {
+	// 	// fmt.Println("cb", results)
+	// 	for _, r := range results {
+	// 		totalMatched++
+	// 		totalQty += r.Qty
+	// 		// In vài dòng đầu để kiểm tra
+	// 		if totalMatched <= 5 {
+	// 			log.Printf("✅ Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
+	// 				r.OrderID, r.CounterOrderID, r.Price, r.Qty)
+	// 		}
+	// 	}
+	// }
+	// obm.RegisterTradeCallback(cb)
+
+	start := time.Now()
+	for i := 0; i < numOrders; i++ {
+		order := randomOrder(i + 1)
+		results := obm.AddOrder(order)
 		for _, r := range results {
 			totalMatched++
 			totalQty += r.Qty
@@ -54,13 +70,6 @@ func main() {
 					r.OrderID, r.CounterOrderID, r.Price, r.Qty)
 			}
 		}
-	}
-	obm.RegisterTradeCallback(cb)
-
-	start := time.Now()
-	for i := 0; i < numOrders; i++ {
-		order := randomOrder(i + 1)
-		obm.AddOrder(order)
 	}
 
 	elapsed := time.Since(start)

@@ -1,0 +1,44 @@
+CREATE TABLE
+    IF NOT EXISTS orders (
+        "id" SERIAL PRIMARY KEY,
+        gateway_id TEXT,
+        orig_gateway_id TEXT,
+        symbol TEXT,
+        security_id TEXT,
+        exchange TEXT,
+        side TEXT,
+        type TEXT,
+        time_in_force TEXT,
+        price DECIMAL,
+        quantity BIGINT,
+        account TEXT,
+        transact_time TIMESTAMP,
+        counterparty_account TEXT,
+        counterparty_exec_id TEXT,
+        exec_id TEXT,
+        last_exec_id TEXT,
+        order_id TEXT,
+        status TEXT,
+        exec_type TEXT,
+        cum_quantity BIGINT,
+        leaves_quantity BIGINT,
+        last_quantity BIGINT,
+        last_price DECIMAL,
+        avg_price DECIMAL,
+        last_update TIMESTAMP,
+        "created_at" timestamptz,
+        "updated_at" timestamptz,
+        "deleted_at" timestamptz
+    );
+
+CREATE TABLE
+    IF NOT EXISTS order_events (
+        event_id TEXT,
+        order_id TEXT,
+        gateway_id TEXT,
+        orig_gateway_id TEXT,
+        exec_type VARCHAR,
+        qty BIGINT,
+        price DECIMAL,
+        timestamp TIMESTAMP
+    );

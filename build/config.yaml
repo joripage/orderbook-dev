@@ -1,0 +1,8 @@
+# Config
+service_name: ${SERVICE_NAME}
+service_version: ${SERVICE_VERSION}
+environment: ${ENVIRONMENT}
+oms_db:
+  data_source: ${OMS_DB_DATA_SOURCE}
+  migration_conn_url: ${OMS_DB_MIGRATION_CONN_URL}
+  log_level: ${OMS_DB_LOG_LEVEL}
