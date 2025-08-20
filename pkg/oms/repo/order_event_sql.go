@@ -24,3 +24,8 @@ func (s *OrderEventSQLRepo) dbWithContext(ctx context.Context) *gorm.DB {
 func (r *OrderEventSQLRepo) Create(ctx context.Context, record *model.OrderEvent) (*model.OrderEvent, error) {
 	return record, r.dbWithContext(ctx).Create(record).Error
 }
+
+func (r *OrderEventSQLRepo) BulkCreate(ctx context.Context, records []*model.OrderEvent) ([]*model.OrderEvent, error) {
+	return records, r.dbWithContext(ctx).Create(records).Error
+
+}

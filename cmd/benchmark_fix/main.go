@@ -32,8 +32,9 @@ func (a *InitiatorApp) OnLogon(sessionID quickfix.SessionID) {
 	log.Println("Logon success")
 
 	// go sendMessageMatchLimit44(sessionID)
-	go sendMessageCancelOrder44(sessionID)
+	// go sendMessageCancelOrder44(sessionID)
 	// go sendMessageMatchAmend44(sessionID)
+	go sendMessageMatchLimitSoftly44(sessionID)
 }
 
 func (a *InitiatorApp) OnLogout(sessionID quickfix.SessionID)                       {}
@@ -318,12 +319,80 @@ func sendMessageCancelOrder(sessionID quickfix.SessionID) {
 }
 
 // fix 4.4
+func sendMessageMatchLimitSoftly44(sessionID quickfix.SessionID) {
+	total := 5000
+	total = total / 4
+	// total := 1
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	i := 0
+	for t := range ticker.C {
+		i += 1
+		if i > 120 { // 15 min
+			break
+		}
+		fmt.Printf("sending %d-%d at %s\n", i, total, t.Format("15-04-05"))
+		go func() {
+			start := time.Now()
+			for i := 0; i < total; i++ {
+				orderBuy := fix44nos.New(
+					field.NewClOrdID(""),
+					field.NewSide(enum.Side_BUY),
+					field.NewTransactTime(time.Now()),
+					field.NewOrdType(enum.OrdType_LIMIT))
+				orderBuy.SetAccount("TMT")
+				orderBuy.SetSymbol("VN000000HAG6")
+				orderBuy.SetSecurityID("VN000000HAG6")
+				orderBuy.SetPrice(decimal.NewFromInt(15600), 0)
+				orderBuy.SetOrderQty(decimal.NewFromInt(100), 0)
+				orderBuy.SetTimeInForce("0")
+				orderBuy.SetSenderCompID(sessionID.SenderCompID)
+				orderBuy.SetTargetCompID(sessionID.TargetCompID)
+				orderBuy.SetClOrdID(randSeq(17))
+				// orderBuy.SetMaxFloor(decimal.NewFromInt(1000), 0)
+				err := quickfix.Send(orderBuy)
+				_ = err
+				// log.Println(err)
+
+				sellID := randSeq(17)
+				orderSell := fix44nos.New(
+					field.NewClOrdID(""),
+					field.NewSide(enum.Side_SELL),
+					field.NewTransactTime(time.Now()),
+					field.NewOrdType(enum.OrdType_LIMIT))
+				orderSell.SetAccount("TMT")
+				orderSell.SetSymbol("VN000000HAG6")
+				orderSell.SetSecurityID("VN000000HAG6")
+				orderSell.SetPrice(decimal.NewFromInt(15600), 0)
+				orderSell.SetOrderQty(decimal.NewFromInt(100), 0)
+				orderSell.SetTimeInForce("0")
+				orderSell.SetSenderCompID(sessionID.SenderCompID)
+				orderSell.SetTargetCompID(sessionID.TargetCompID)
+				orderSell.SetClOrdID(sellID)
+				err = quickfix.Send(orderSell)
+				_ = err
+				// log.Println(err)
+				if i == total-1 {
+					log.Println(i, sellID)
+				}
+			}
+
+			elapsed := time.Since(start)
+			msgsPerSec := float64(total) / elapsed.Seconds()
+
+			log.Printf("Sent %d messages in %v", total, elapsed)
+			log.Printf("Throughput: %.2f messages/sec", msgsPerSec)
+		}()
+	}
+}
 
 func sendMessageMatchLimit44(sessionID quickfix.SessionID) {
 	total := 125_000 // 500_000 / 4
 	// total = 62500    // 500_000 / 8
 	// total = 31250    // 500_000 / 16
-	total = 1
+	// total = 25_000
 	start := time.Now()
 
 	for i := 0; i < total; i++ {

@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type OrderEvent struct {
@@ -19,6 +21,10 @@ type OrderEvent struct {
 	ExecID        string
 	LastExecID    string
 	Timestamp     time.Time
+
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
 
 // func NewOrderEventNewOrder(orderID, gatewayID string, price float64, qty, cumQty, leaveQty int64, ts time.Time) *OrderEvent {

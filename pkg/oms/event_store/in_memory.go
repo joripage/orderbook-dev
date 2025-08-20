@@ -1,10 +1,10 @@
 package eventstore
 
 import (
-	"context"
 	"encoding/json"
 	"sync"
 
+	"github.com/joripage/go_util/pkg/shardqueue"
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/nats-io/nats.go"
 )
@@ -16,35 +16,48 @@ type InMemoryEventStore struct {
 	orderIDToLatestGatewayID map[string]string // orderID -> current gatewayID
 	gatewayIDToOrigGatewayID map[string]string // gatewayID -> origGatewayID
 
-	js      nats.JetStreamContext // todo
-	subject string                // todo
+	sq      *shardqueue.Shardqueue
+	js      nats.JetStreamContext
+	subject string
 }
 
 func NewInMemoryEventStore() *InMemoryEventStore {
 	nc, _ := nats.Connect(nats.DefaultURL)
 	js, _ := nc.JetStream()
-	return &InMemoryEventStore{
+	numShard := 2
+	queueSize := 100000
+	sq := shardqueue.NewShardQueue(numShard, queueSize)
+	store := &InMemoryEventStore{
 		orders:                   make(map[string][]*model.OrderEvent),
 		gatewayIDToOrderID:       make(map[string]string),
 		orderIDToLatestGatewayID: make(map[string]string),
 		gatewayIDToOrigGatewayID: make(map[string]string),
 		js:                       js,
 		subject:                  "ORDERS.*",
-		// []string{"ORDERS.*"}
+		sq:                       sq,
 	}
+	store.sq.Start(func(msg interface{}) error {
+		if v, ok := msg.(*model.OrderEvent); ok {
+			store.publish(v)
+		}
+		return nil
+	})
+
+	return store
 }
 
-func (s *InMemoryEventStore) AddEvent(ev *model.OrderEvent) {
+func (s *InMemoryEventStore) AddEvent(event *model.OrderEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// update store
-	s.orders[ev.OrderID] = append(s.orders[ev.OrderID], ev)
+	s.orders[event.OrderID] = append(s.orders[event.OrderID], event)
 
 	// update ClOrdID chain
-	s.TrackClOrdChain(ev.OrderID, ev.GatewayID, ev.OrigGatewayID)
+	s.TrackClOrdChain(event.OrderID, event.GatewayID, event.OrigGatewayID)
 
-	s.publish(context.Background(), *ev)
+	// s.publish(context.Background(), *ev)
+	go s.sq.Shard(event.OrderID, event)
 }
 
 // TrackClOrdChain updates the chain between ClOrdID and OrigClOrdID
@@ -96,8 +109,8 @@ func (s *InMemoryEventStore) ReconstructChain(gatewayID string) []string {
 	return chain
 }
 
-func (s *InMemoryEventStore) publish(ctx context.Context, ev model.OrderEvent) error {
-	data, _ := json.Marshal(ev)
+func (s *InMemoryEventStore) publish(event *model.OrderEvent) error {
+	data, _ := json.Marshal(event)
 	_, err := s.js.Publish("ORDERS.events", data)
 	return err
 }

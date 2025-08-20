@@ -32,24 +32,24 @@ func (w *Worker) StartConsumer(ctx context.Context, js nats.JetStreamContext, su
 	}
 
 	for {
-		msgs, err := cons.Fetch(10)
+		msgs, err := cons.Fetch(1000)
 		if err != nil {
 			log.Println("Fetch error:", err)
 			continue
 		}
-
+		var orderEvents []*model.OrderEvent
 		for _, msg := range msgs {
-			var ev model.OrderEvent
-			if err := json.Unmarshal(msg.Data, &ev); err != nil {
+			var orderEvent model.OrderEvent
+			if err := json.Unmarshal(msg.Data, &orderEvent); err != nil {
 				log.Println("unmarshal err", err)
 				_ = msg.Ack()
 				continue
 			}
-			if err := w.handleEvent(ev); err != nil {
-				log.Println("handleEvent err", err)
-				continue
-			}
+			orderEvents = append(orderEvents, &orderEvent)
 			_ = msg.Ack()
+		}
+		if len(orderEvents) > 0 {
+			w.orderEvent.BulkCreate(ctx, orderEvents)
 		}
 	}
 }
