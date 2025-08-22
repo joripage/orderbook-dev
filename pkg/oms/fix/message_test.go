@@ -1,7 +1,6 @@
 package fixgateway
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -15,38 +14,38 @@ import (
 	"github.com/joripage/orderbook-dev/pkg/oms/model" // <-- đổi path theo repo của bạn
 )
 
-// ----- Pool setup -----
+// // ----- Pool setup -----
 
-var execReportPool = sync.Pool{
-	New: func() interface{} {
-		// tạo message base (tránh alloc mới toàn bộ header/body)
-		return executionreport.New(
-			field.NewOrderID(""),
-			field.NewExecID(""),
-			field.NewExecType(enum.ExecType_NEW),
-			field.NewOrdStatus(enum.OrdStatus_NEW),
-			field.NewSide(enum.Side_BUY),
-			field.NewLeavesQty(decimal.NewFromInt(0), 0),
-			field.NewCumQty(decimal.NewFromInt(0), 0),
-			field.NewAvgPx(decimal.NewFromFloat(0), 0),
-		)
-	},
-}
+// var execReportPool = sync.Pool{
+// 	New: func() interface{} {
+// 		// tạo message base (tránh alloc mới toàn bộ header/body)
+// 		return executionreport.New(
+// 			field.NewOrderID(""),
+// 			field.NewExecID(""),
+// 			field.NewExecType(enum.ExecType_NEW),
+// 			field.NewOrdStatus(enum.OrdStatus_NEW),
+// 			field.NewSide(enum.Side_BUY),
+// 			field.NewLeavesQty(decimal.NewFromInt(0), 0),
+// 			field.NewCumQty(decimal.NewFromInt(0), 0),
+// 			field.NewAvgPx(decimal.NewFromFloat(0), 0),
+// 		)
+// 	},
+// }
 
-func getExecReport() executionreport.ExecutionReport {
-	return execReportPool.Get().(executionreport.ExecutionReport)
-}
+// func getExecReport() executionreport.ExecutionReport {
+// 	return execReportPool.Get().(executionreport.ExecutionReport)
+// }
 
-func putExecReport(msg executionreport.ExecutionReport) {
-	resetMessage(msg.Message)
-	execReportPool.Put(msg)
-}
+// func putExecReport(msg executionreport.ExecutionReport) {
+// 	resetMessage(msg.Message)
+// 	execReportPool.Put(msg)
+// }
 
-func resetMessage(msg *quickfix.Message) {
-	msg.Header.Init()
-	msg.Body.Init()
-	msg.Trailer.Init()
-}
+// func resetMessage(msg *quickfix.Message) {
+// 	msg.Header.Init()
+// 	msg.Body.Init()
+// 	msg.Trailer.Init()
+// }
 
 // ----- Bench target function -----
 

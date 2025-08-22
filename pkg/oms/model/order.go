@@ -128,7 +128,7 @@ func (s *Order) UpdateAddOrder(addOrder *AddOrder) {
 	s.TransactTime = addOrder.TransactTime
 
 	// calculated info
-	s.ExecID = ""
+	s.ExecID = "notempty"
 	s.OrderID = s.ID
 	s.Status = OrderStatusNew
 	s.ExecType = ExecTypeNew
@@ -206,14 +206,32 @@ func (s *Order) CanModify() bool {
 	return false
 }
 
+// Kiểm tra status terminal
+func (s *Order) IsEnd() bool {
+	switch s.Status {
+	case OrderStatusFilled,
+		OrderStatusCanceled,
+		OrderStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 func genTradeExecID() string {
 	return fmt.Sprintf("T-%s", misc.RandSeq(constant.EXECID_LENGTH-2))
+	// return fmt.Sprintf("T-%s", uuid.New())
+	// return "TradeExecID"
 }
 
 func genCancelExecID() string {
 	return fmt.Sprintf("C-%s", misc.RandSeq(constant.EXECID_LENGTH-2))
+	// return fmt.Sprintf("C-%s", uuid.New())
+	// return "CancelExecID"
 }
 
 func genCancelReplaceExecID() string {
 	return fmt.Sprintf("R-%s", misc.RandSeq(constant.EXECID_LENGTH-2))
+	// return fmt.Sprintf("R-%s", uuid.New())
+	// return "ReplaceExecID"
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	eventstore "github.com/joripage/orderbook-dev/pkg/oms/event_store"
@@ -17,9 +18,11 @@ type OMS struct {
 	orderbookManager *orderbook.OrderBookManager
 	eventstore       eventstore.EventStore
 
-	orderIDMapping   sync.Map
-	gatewayIDMapping sync.Map
-	rules            []riskrule.RiskRule
+	orderIDMapping sync.Map
+	stopCh         chan struct{}
+	// gatewayIDMapping sync.Map
+
+	rules []riskrule.RiskRule
 }
 
 var totalMatchQty int64 = 0
@@ -34,43 +37,19 @@ func NewOMS(orderGateway OrderGateway) *OMS {
 		orderGateway:     orderGateway,
 		orderbookManager: orderbookManager,
 		eventstore:       eventstore.NewInMemoryEventStore(),
+		stopCh:           make(chan struct{}),
 	}
-
-	// cb := func(results []orderbook.MatchResult) {
-	// 	for _, r := range results {
-	// 		log.Printf("Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
-	// 			r.OrderID, r.CounterOrderID, r.Price, r.Qty)
-
-	// 		totalMatchQty += r.Qty
-	// 		totalMatchCount += 1
-	// 		log.Printf("TotalMatchCount: %d, TotalMatchQty: %d\n", totalMatchCount, totalMatchQty)
-
-	// 		order, err := oms.GetOrderByOrderID(r.OrderID)
-	// 		if err != nil {
-	// 			log.Printf("match orderID=%s not found", r.OrderID)
-	// 			continue
-	// 		}
-
-	// 		order.UpdateMatchResult(&r)
-	// 		oms.orderGateway.OnOrderReport(context.Background(), order)
-
-	// 		counterOrder, err := oms.GetOrderByOrderID(r.CounterOrderID)
-	// 		if err != nil {
-	// 			log.Printf("match counterOrderID=%s not found", r.CounterOrderID)
-	// 			continue
-	// 		}
-
-	// 		counterOrder.UpdateMatchResult(&r)
-	// 		oms.orderGateway.OnOrderReport(context.Background(), counterOrder)
-	// 	}
-	// }
-	// oms.orderbookManager.RegisterTradeCallback(cb)
+	// go oms.startCleaner(10 * time.Second)
 
 	return oms
 }
 
 func (s *OMS) Start(ctx context.Context) {
 	s.orderGateway.Start(ctx)
+}
+
+func (s *OMS) Stop() {
+	close(s.stopCh)
 }
 
 func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
@@ -95,8 +74,13 @@ func (s *OMS) AddOrder(ctx context.Context, addOrder *model.AddOrder) error {
 	})
 
 	// book success -> change pending new to new
-	s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
-	s.orderGateway.OnOrderReport(ctx, order)
+	bkOrder := *order
+	now := time.Now()
+	// ov, fnReset := model.NewOrderEventUsingPool(bkOrder, now)
+	// s.eventstore.AddEvent(ov)
+	// fnReset()
+	s.eventstore.AddEvent(model.NewOrderEvent(bkOrder, now))
+	s.orderGateway.OnOrderReport(ctx, bkOrder)
 
 	s.processMatchResult(results)
 
@@ -118,8 +102,14 @@ func (s *OMS) CancelOrder(ctx context.Context, cancelOrder *model.CancelOrder) e
 	err = s.orderbookManager.CancelOrder(order.Symbol, order.OrderID)
 	_ = err
 	order.UpdateCancelOrder(cancelOrder)
-	s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
-	s.orderGateway.OnOrderReport(ctx, order)
+
+	bkOrder := *order
+	now := time.Now()
+	// ov, fnReset := model.NewOrderEventUsingPool(bkOrder, now)
+	// s.eventstore.AddEvent(ov)
+	// fnReset()
+	s.eventstore.AddEvent(model.NewOrderEvent(bkOrder, now))
+	s.orderGateway.OnOrderReport(ctx, bkOrder)
 
 	return nil
 }
@@ -140,8 +130,14 @@ func (s *OMS) ModifyOrder(ctx context.Context, modifyOrder *model.ModifyOrder) e
 	results, err := s.orderbookManager.ModifyOrder(order.Symbol, order.OrderID, newPrice, newQty)
 	_ = err
 	order.UpdateModifyOrder(modifyOrder)
-	s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
-	s.orderGateway.OnOrderReport(ctx, order)
+
+	bkOrder := *order
+	now := time.Now()
+	// ov, fnReset := model.NewOrderEventUsingPool(bkOrder, now)
+	// s.eventstore.AddEvent(ov)
+	// fnReset()
+	s.eventstore.AddEvent(model.NewOrderEvent(bkOrder, now))
+	s.orderGateway.OnOrderReport(ctx, bkOrder)
 
 	s.processMatchResult(results)
 
@@ -150,12 +146,14 @@ func (s *OMS) ModifyOrder(ctx context.Context, modifyOrder *model.ModifyOrder) e
 
 func (s *OMS) processMatchResult(results []*orderbook.MatchResult) {
 	for _, r := range results {
-		log.Printf("Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
-			r.OrderID, r.CounterOrderID, r.Price, r.Qty)
+		// log.Printf("Match: BUY[%s] <=> SELL[%s] @ %.2f Qty %d\n",
+		// 	r.OrderID, r.CounterOrderID, r.Price, r.Qty)
 
-		totalMatchQty += r.Qty
-		totalMatchCount += 1
-		log.Printf("TotalMatchCount: %d, TotalMatchQty: %d\n", totalMatchCount, totalMatchQty)
+		atomic.AddInt64(&totalMatchQty, r.Qty)
+		atomic.AddInt64(&totalMatchCount, 1)
+		if totalMatchCount%10000 == 0 {
+			log.Printf("TotalMatchCount: %d, TotalMatchQty: %d\n", totalMatchCount, totalMatchQty)
+		}
 
 		order, err := s.GetOrderByOrderID(r.OrderID)
 		if err != nil {
@@ -164,8 +162,13 @@ func (s *OMS) processMatchResult(results []*orderbook.MatchResult) {
 		}
 
 		order.UpdateMatchResult(r)
-		s.eventstore.AddEvent(model.NewOrderEvent(order, time.Now()))
-		s.orderGateway.OnOrderReport(context.Background(), order)
+		bkOrder := *order
+		now := time.Now()
+		// ov, fnReset := model.NewOrderEventUsingPool(bkOrder, now)
+		// s.eventstore.AddEvent(ov)
+		// fnReset()
+		s.eventstore.AddEvent(model.NewOrderEvent(bkOrder, now))
+		s.orderGateway.OnOrderReport(context.Background(), bkOrder)
 
 		counterOrder, err := s.GetOrderByOrderID(r.CounterOrderID)
 		if err != nil {
@@ -174,7 +177,11 @@ func (s *OMS) processMatchResult(results []*orderbook.MatchResult) {
 		}
 
 		counterOrder.UpdateMatchResult(r)
-		s.eventstore.AddEvent(model.NewOrderEvent(counterOrder, time.Now()))
-		s.orderGateway.OnOrderReport(context.Background(), counterOrder)
+		bkCounterOrder := *counterOrder
+		// ovCounter, fnReset := model.NewOrderEventUsingPool(bkCounterOrder, now)
+		// s.eventstore.AddEvent(ovCounter)
+		// fnReset()
+		s.eventstore.AddEvent(model.NewOrderEvent(bkCounterOrder, now))
+		s.orderGateway.OnOrderReport(context.Background(), bkCounterOrder)
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/joripage/orderbook-dev/pkg/oms"
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/quickfixgo/enum"
-	"github.com/quickfixgo/quickfix"
 )
 
 type FixGateway struct {
@@ -120,18 +119,23 @@ func (s *FixGateway) OnOrderReport(ctx context.Context, args ...interface{}) {
 		return
 	}
 
-	if order, ok := args[0].(*model.Order); ok {
+	if order, ok := args[0].(model.Order); ok {
 
 		sessionID, err := s.GetRequestByClOrdID(order.GatewayID)
 		if err != nil {
-			log.Printf("match OrderID=%s not found", order.OrderID)
+			log.Printf("match OrderID=%s not found", order.GatewayID)
 			return
 		}
 		// todo: need to review if we need to send via goroutine
-		orderBK := *order
-		go func() {
-			msg := orderReportToExecutionReport(&orderBK)
-			quickfix.SendToTarget(msg, *sessionID)
-		}()
+		// go func() {
+		msg := orderReportToExecutionReport(order, sessionID)
+		_ = msg
+		// err = quickfix.SendToTarget(msg, *sessionID)
+		// if err != nil {
+		// 	log.Printf("send err=%v", err)
+		// 	return
+		// }
+		// putExecReport(msg) // trả về pool
+		// }()
 	}
 }

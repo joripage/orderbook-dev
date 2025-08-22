@@ -1,9 +1,13 @@
 package fixgateway
 
 import (
+	"fmt"
+	"log"
+	"sync"
+	"sync/atomic"
+
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/quickfixgo/enum"
-	"github.com/quickfixgo/field"
 	"github.com/quickfixgo/fix44/executionreport"
 	"github.com/quickfixgo/quickfix"
 	"github.com/shopspring/decimal"
@@ -34,45 +38,97 @@ var (
 	}
 )
 
-// type Order struct {
-// 	ID int64
+// ----- Pool setup -----
 
-// 	// init info
-// 	Symbol       string
-// 	Side         OrderSide
-// 	Type         OrderType
-// 	TimeInForce  OrderTimeInForce
-// 	Price        decimal.Decimal
-// 	Quantity     decimal.Decimal
-// 	Account      string
-// 	TransactTime time.Time
+func done(msg *quickfix.Message) {
+	// encode / send xong thì trả về pool
+	execReportPool.Put(msg)
+}
 
-// 	// counterparty
-// 	CounterpartyAccount string
-// 	CounterpartyExecID  string
+// MessagePool là wrapper để quản lý pool Message
+type MessagePool struct {
+	pool sync.Pool
+}
 
-// 	// calculated info
-// 	ExecID         string
-// 	OrderID        string
-// 	Status         OrderStatus
-// 	ExecType       OrderExecType
-// 	CumQuantity    decimal.Decimal
-// 	LeavesQuantity decimal.Decimal
-// 	LastQuantity   decimal.Decimal
-// 	LastPrice      decimal.Decimal
-// }
+// NewMessagePool tạo MessagePool mới
+func NewMessagePool() *MessagePool {
+	return &MessagePool{
+		pool: sync.Pool{
+			New: func() interface{} {
+				// tạo message mới với Header/Body/Trailer init sẵn
+				m := quickfix.NewMessage()
+				resetMessage(m)
+				return m
+			},
+		},
+	}
+}
 
-func orderReportToExecutionReport(order *model.Order) quickfix.Messagable {
-	execReportMsg := executionreport.New(
-		field.NewOrderID(order.OrderID),
-		field.NewExecID(order.ExecID), //think again if it should be in Order model
-		field.NewExecType(enum.ExecType(order.ExecType)),
-		field.NewOrdStatus(enum.OrdStatus(OrderStatusMapping[order.Status])),
-		field.NewSide(enum.Side(SideMapping[order.Side])),
-		field.NewLeavesQty(decimal.NewFromInt(order.LeavesQuantity), 2),
-		field.NewCumQty(decimal.NewFromInt(order.CumQuantity), 2),
-		field.NewAvgPx(decimal.NewFromFloat(order.AvgPrice), 2),
-	)
+// Get lấy message từ pool (đã reset)
+func (mp *MessagePool) Get() *quickfix.Message {
+	m := mp.pool.Get().(*quickfix.Message)
+	resetMessage(m)
+	return m
+}
+
+// Put trả message về pool
+func (mp *MessagePool) Put(m *quickfix.Message) {
+	// reset lại trước khi put để tránh memory leak
+	resetMessage(m)
+	mp.pool.Put(m)
+}
+
+// resetMessage xóa toàn bộ field map và reset tagSort
+func resetMessage(m *quickfix.Message) {
+	m.Header.Init()
+	m.Body.Init()
+	m.Trailer.Init()
+	m.Header.Clear()
+	m.Body.Clear()
+	m.Trailer.Clear()
+}
+
+var execReportPool = NewMessagePool()
+
+// var newOrderSinglePool = NewMessagePool()
+
+var reportCount = int64(0)
+
+func orderReportToExecutionReport(order model.Order, sessionID *quickfix.SessionID) executionreport.ExecutionReport {
+	atomic.AddInt64(&reportCount, 1)
+	fmt.Println(reportCount)
+	msg := execReportPool.Get()
+	msg.Header.Clear()
+	execReportMsg := executionreport.FromMessage(msg)
+
+	// resetMessage(&execReportMsg)
+	// execReportMsg.Header.Init()
+	// execReportMsg.Body.Init()
+	// execReportMsg.Trailer.Init()
+	// execReportMsg.Message.Header.Init()
+	// execReportMsg.Message.Body.Init()
+	// execReportMsg.Message.Trailer.Init()
+
+	// execReportMsg := executionreport.New(
+	// 	field.NewOrderID(order.OrderID),
+	// 	field.NewExecID(order.ExecID), //think again if it should be in Order model
+	// 	field.NewExecType(enum.ExecType(order.ExecType)),
+	// 	field.NewOrdStatus(enum.OrdStatus(OrderStatusMapping[order.Status])),
+	// 	field.NewSide(enum.Side(SideMapping[order.Side])),
+	// 	field.NewLeavesQty(decimal.NewFromInt(order.LeavesQuantity), 2),
+	// 	field.NewCumQty(decimal.NewFromInt(order.CumQuantity), 2),
+	// 	field.NewAvgPx(decimal.NewFromFloat(order.AvgPrice), 2),
+	// )
+
+	execReportMsg.SetMsgType(enum.MsgType_EXECUTION_REPORT)
+	execReportMsg.SetOrderID(order.OrderID)
+	execReportMsg.SetExecID(order.ExecID) //think again if it should be in Order model
+	execReportMsg.SetExecType(enum.ExecType(order.ExecType))
+	execReportMsg.SetOrdStatus(enum.OrdStatus(OrderStatusMapping[order.Status]))
+	execReportMsg.SetSide(enum.Side(SideMapping[order.Side]))
+	execReportMsg.SetLeavesQty(decimal.NewFromInt(order.LeavesQuantity), 2)
+	execReportMsg.SetCumQty(decimal.NewFromInt(order.CumQuantity), 2)
+	execReportMsg.SetAvgPx(decimal.NewFromFloat(order.AvgPrice), 2)
 
 	execReportMsg.SetClOrdID(order.GatewayID)
 	execReportMsg.SetOrigClOrdID(order.OrigGatewayID)
@@ -115,6 +171,13 @@ func orderReportToExecutionReport(order *model.Order) quickfix.Messagable {
 	// if newOrderSingle.DeliverToCompID != "" {
 	// 	execReportMsg.SetDeliverToCompID(newOrderSingle.DeliverToCompID)
 	// }
+	err := quickfix.SendToTarget(execReportMsg, *sessionID)
+	if err != nil {
+		log.Printf("send err=%v", err)
+		return execReportMsg
+	}
+	// putExecReport(execReportMsg)
+	execReportPool.Put(msg)
 
 	return execReportMsg
 }

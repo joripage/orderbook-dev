@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/quickfixgo/enum"
@@ -319,7 +320,13 @@ func sendMessageCancelOrder(sessionID quickfix.SessionID) {
 }
 
 // fix 4.4
+var sent = int32(0)
+
 func sendMessageMatchLimitSoftly44(sessionID quickfix.SessionID) {
+	if sent > 4 {
+		return
+	}
+	atomic.AddInt32(&sent, 1)
 	total := 5000
 	total = total / 4
 	// total := 1

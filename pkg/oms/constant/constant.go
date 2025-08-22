@@ -1,6 +1,6 @@
 package constant
 
 const (
-	ID_LENGTH     = 10
-	EXECID_LENGTH = 10
+	ID_LENGTH     = 15
+	EXECID_LENGTH = 15
 )
