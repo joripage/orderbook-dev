@@ -94,20 +94,12 @@ var execReportPool = NewMessagePool()
 
 var reportCount = int64(0)
 
-func orderReportToExecutionReport(order model.Order, sessionID *quickfix.SessionID) executionreport.ExecutionReport {
+func orderReportToExecutionReport(order model.Order, sessionID *quickfix.SessionID) error {
 	atomic.AddInt64(&reportCount, 1)
 	fmt.Println(reportCount)
-	msg := execReportPool.Get()
-	msg.Header.Clear()
-	execReportMsg := executionreport.FromMessage(msg)
 
-	// resetMessage(&execReportMsg)
-	// execReportMsg.Header.Init()
-	// execReportMsg.Body.Init()
-	// execReportMsg.Trailer.Init()
-	// execReportMsg.Message.Header.Init()
-	// execReportMsg.Message.Body.Init()
-	// execReportMsg.Message.Trailer.Init()
+	msg := execReportPool.Get()
+	execReportMsg := executionreport.FromMessage(msg)
 
 	// execReportMsg := executionreport.New(
 	// 	field.NewOrderID(order.OrderID),
@@ -163,21 +155,13 @@ func orderReportToExecutionReport(order model.Order, sessionID *quickfix.Session
 		execReportMsg.SetOrdStatus(enum.OrdStatus_REPLACED)
 	}
 
-	// execReportMsg.SetTargetCompID(newOrderSingle.SenderCompID)
-	// execReportMsg.SetSenderCompID(newOrderSingle.TargetCompID)
-	// if newOrderSingle.OnBehalfOfCompID != "" {
-	// 	execReportMsg.SetOnBehalfOfCompID(newOrderSingle.OnBehalfOfCompID)
-	// }
-	// if newOrderSingle.DeliverToCompID != "" {
-	// 	execReportMsg.SetDeliverToCompID(newOrderSingle.DeliverToCompID)
-	// }
 	err := quickfix.SendToTarget(execReportMsg, *sessionID)
 	if err != nil {
 		log.Printf("send err=%v", err)
-		return execReportMsg
+		return err
 	}
-	// putExecReport(execReportMsg)
+
 	execReportPool.Put(msg)
 
-	return execReportMsg
+	return nil
 }

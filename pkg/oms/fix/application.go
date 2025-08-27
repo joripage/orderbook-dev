@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/joripage/go_util/pkg/shardqueue"
+	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/quickfixgo/fix44/newordersingle"
 	"github.com/quickfixgo/fix44/ordercancelreplacerequest"
 	"github.com/quickfixgo/fix44/ordercancelrequest"
@@ -20,10 +21,11 @@ import (
 // Application implements the quickfix.Application interface
 type Application struct {
 	*quickfix.MessageRouter
-	cfg        AppConfig
-	quickEvent chan bool
-	dispatcher chan *inboundMsg
-	shardQueue *shardqueue.Shardqueue
+	cfg           AppConfig
+	quickEvent    chan bool
+	dispatcher    chan *inboundMsg
+	dispatcherOut chan *outboundMsg
+	shardQueue    *shardqueue.Shardqueue
 
 	fixGateway *FixGateway
 }
@@ -38,8 +40,14 @@ type inboundMsg struct {
 	sessionID quickfix.SessionID
 }
 
+type outboundMsg struct {
+	// msg       *quickfix.Message
+	order     model.Order
+	sessionID *quickfix.SessionID
+}
+
 const (
-	numShards = 64
+	numShards = 16
 	queueSize = 1_000_000
 )
 
@@ -65,7 +73,9 @@ func newApplication(cfg AppConfig, fixGateway *FixGateway) *Application {
 		})
 	} else if app.cfg.enableQueue {
 		app.dispatcher = make(chan *inboundMsg, queueSize)
+		app.dispatcherOut = make(chan *outboundMsg, queueSize)
 		go app.runDispatcher()
+		go app.runDispatcherOut()
 	}
 
 	return app
@@ -91,8 +101,8 @@ func startApp(config_filepath string, fixGateway *FixGateway) (*Application, err
 	}
 
 	app := newApplication(AppConfig{
-		// enableQueue: true,
-		enableShardQueue: true,
+		enableQueue: true,
+		// enableShardQueue: true,
 	}, fixGateway)
 
 	logFactory, _ := file.NewLogFactory(appSettings)
@@ -177,13 +187,16 @@ func (a *Application) runDispatcher() {
 	}
 }
 
-func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessionID quickfix.SessionID) quickfix.MessageRejectError {
-	// senderCompID, _ := msg.GetSenderCompID()
-	// senderSubID, _ := msg.GetSenderSubID()
-	// targetCompID, _ := msg.GetTargetCompID()
-	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
-	// deliverToCompID, _ := msg.GetDeliverToCompID()
+func (a *Application) runDispatcherOut() {
+	for msg := range a.dispatcherOut {
+		err := orderReportToExecutionReport(msg.order, msg.sessionID)
+		if err != nil {
+			log.Printf("send err=%v", err)
+		}
+	}
+}
 
+func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessionID quickfix.SessionID) quickfix.MessageRejectError {
 	clOrdID, _ := msg.GetClOrdID()
 	symbol, _ := msg.GetSymbol()
 	side, _ := msg.GetSide()
@@ -201,11 +214,6 @@ func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessio
 
 	m := &NewOrderSingle{
 		SessionID: &sessionID,
-		// SenderCompID:     senderCompID,
-		// SenderSubID:      senderSubID,
-		// TargetCompID:     targetCompID,
-		// OnBehalfOfCompID: onBehalfOfCompID,
-		// DeliverToCompID:  deliverToCompID,
 
 		Account:           account,
 		AccountType:       accountType,
@@ -228,12 +236,6 @@ func (a *Application) onNewOrderSingle(msg newordersingle.NewOrderSingle, sessio
 }
 
 func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelRequest, sessionID quickfix.SessionID) quickfix.MessageRejectError {
-	// senderCompID, _ := msg.GetSenderCompID()
-	// senderSubID, _ := msg.GetSenderSubID()
-	// targetCompID, _ := msg.GetTargetCompID()
-	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
-	// deliverToCompID, _ := msg.GetDeliverToCompID()
-
 	origClOrdID, _ := msg.GetOrigClOrdID()
 	clOrdID, _ := msg.GetClOrdID()
 	account, _ := msg.GetAccount()
@@ -246,11 +248,6 @@ func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelReq
 
 	m := &OrderCancelRequest{
 		SessionID: &sessionID,
-		// SenderCompID:     senderCompID,
-		// SenderSubID:      senderSubID,
-		// TargetCompID:     targetCompID,
-		// OnBehalfOfCompID: onBehalfOfCompID,
-		// DeliverToCompID:  deliverToCompID,
 
 		OrigClOrdID:       origClOrdID,
 		ClOrdID:           clOrdID,
@@ -268,14 +265,6 @@ func (a *Application) onOrderCancelRequest(msg ordercancelrequest.OrderCancelReq
 }
 
 func (a *Application) onOrderCancelReplaceRequest(msg ordercancelreplacerequest.OrderCancelReplaceRequest, sessionID quickfix.SessionID) quickfix.MessageRejectError {
-
-	// senderCompID, _ := msg.GetSenderCompID()
-	// senderSubID, _ := msg.GetSenderSubID()
-	// targetCompID, _ := msg.GetTargetCompID()
-	// onBehalfOfCompID, _ := msg.GetOnBehalfOfCompID()
-	// deliverToCompID, _ := msg.GetDeliverToCompID()
-	// msgSeqNum, _ := msg.GetMsgSeqNum()
-
 	origClOrderID, _ := msg.GetOrigClOrdID()
 	clOrderID, _ := msg.GetClOrdID()
 	account, _ := msg.GetAccount()

@@ -9,4 +9,5 @@ type EventStore interface {
 	GetOrigGatewayID(clOrdID string) string
 	GetOrderID(clOrdID string) string
 	ReconstructChain(clOrdID string) []string
+	DeleteChainByOrderID(orderID string)
 }

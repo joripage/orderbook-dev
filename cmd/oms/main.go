@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/joripage/orderbook-dev/pkg/oms"
@@ -17,6 +18,8 @@ func main() {
 	go func() {
 		http.ListenAndServe("localhost:6060", nil)
 	}()
+	runtime.SetBlockProfileRate(1)
+	runtime.SetMutexProfileFraction(1)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

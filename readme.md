@@ -3,6 +3,15 @@
 - 4 session là tốt nhất ở máy local hiện tại
 - cần benchmark thực tế trên server để cho performance tốt nhất
 
+```bash
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=10
+go tool pprof http://localhost:6060/debug/pprof/block?seconds=10
+go tool pprof http://localhost:6060/debug/pprof/mutext?seconds=10
+go tool pprof http://localhost:6060/debug/pprof/allocs?seconds=10
+go tool pprof http://localhost:6060/debug/pprof/heap?seconds=10
+go tool pprof http://localhost:6060/debug/pprof/goroutine?seconds=10
+```
+
 ```
 ---- 1 session
 2025/08/18 03:51:48.010457 8=FIX.4.49=16835=D34=249=test152=20250818-03:51:48.010

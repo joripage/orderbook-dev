@@ -10,7 +10,6 @@ import (
 	"github.com/joripage/orderbook-dev/pkg/oms/repo"
 	"github.com/joripage/orderbook-dev/pkg/oms/worker"
 	_ "github.com/lib/pq"
-	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 )
 
@@ -33,15 +32,15 @@ func main() {
 
 	ctx := context.Background()
 
-	// NATS
-	nc, _ := nats.Connect(nats.DefaultURL)
-	js, _ := nc.JetStream()
+	// // NATS
+	// nc, _ := nats.Connect(nats.DefaultURL)
+	// js, _ := nc.JetStream()
 
-	// Ensure stream
-	_, _ = js.AddStream(&nats.StreamConfig{
-		Name:     "ORDERS",
-		Subjects: []string{"ORDERS.*"},
-	})
+	// // Ensure stream
+	// _, _ = js.AddStream(&nats.StreamConfig{
+	// 	Name:     "ORDERS",
+	// 	Subjects: []string{"ORDERS.*"},
+	// })
 
 	// InMemoryStore
 	// store := oms.NewInMemoryOrderStore(js, "ORDER.events")
@@ -65,7 +64,8 @@ func main() {
 
 	// Worker
 	w := worker.NewWorker(sqlRepo)
-	go w.StartConsumer(ctx, js, "ORDERS.events", "order_worker")
+	// go w.StartConsumer(ctx, js, "ORDERS.events", "order_worker")
+	go w.StartConsumerKafka(ctx, "ORDERS.events", "order_worker")
 
 	// Add test order
 	// store.AddOrder(ctx, &oms.Order{

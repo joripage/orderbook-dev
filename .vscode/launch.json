@@ -14,7 +14,10 @@
       "args": [
         "-config-file",
         "${workspaceFolder}/build/config.yaml"
-      ]
+      ],
+      "env": {
+        // "GODEBUG": "gctrace=1"
+      }
     },
     {
       "name": "Launch Worker",

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 
+	kafkawrapper "github.com/joripage/orderbook-dev/pkg/kafka_wrapper"
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/joripage/orderbook-dev/pkg/oms/repo"
 	_ "github.com/lib/pq"
@@ -32,7 +33,7 @@ func (w *Worker) StartConsumer(ctx context.Context, js nats.JetStreamContext, su
 	}
 
 	for {
-		msgs, err := cons.Fetch(1000)
+		msgs, err := cons.Fetch(5000)
 		if err != nil {
 			log.Println("Fetch error:", err)
 			continue
@@ -54,13 +55,48 @@ func (w *Worker) StartConsumer(ctx context.Context, js nats.JetStreamContext, su
 	}
 }
 
-func (w *Worker) handleEvent(ev model.OrderEvent) error {
-	// insert event
-	// _, err := w.db.Exec(`
-	// 	INSERT INTO order_events (event_id, order_id, cl_ord_id, exec_type, qty, price, ts)
-	// 	VALUES ($1,$2,$3,$4,$5,$6,to_timestamp($7/1000.0))
-	// 	ON CONFLICT (event_id) DO NOTHING
-	// `, ev.EventID, ev.OrderID, ev.ClOrdID, ev.ExecType, ev.Qty, ev.Price, ev.Timestamp)
-	_, err := w.orderEvent.Create(context.Background(), &ev)
-	return err
+func (w *Worker) StartConsumerKafka(ctx context.Context, subject, durable string) error {
+	// Consumer with 5 workers
+	cg, err := kafkawrapper.NewConsumerGroup(kafkawrapper.ConsumerConfig{
+		Brokers:     []string{"localhost:29092"},
+		GroupID:     "jobs-workers-2",
+		Topic:       "ORDERS.events",
+		WorkerCount: 5,
+		MaxRetries:  5,
+		DLQTopic:    "jobs.dlq",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cg.Close()
+
+	log.Println("starting consumers...")
+	go func() {
+		if err := cg.Run(ctx, func(ctx context.Context, msgs []kafkawrapper.Message) error {
+			// // simulate work
+			// log.Printf("worker got: key=%s val=%s offset=%d", string(msg.Key), string(msg.Value), msg.Offset)
+			// time.Sleep(300 * time.Millisecond)
+			// return nil // return an error to trigger retries/DLQ
+			var orderEvents []*model.OrderEvent
+			for _, msg := range msgs {
+				var orderEvent model.OrderEvent
+				if err := json.Unmarshal(msg.Value, &orderEvent); err != nil {
+					log.Println("unmarshal err", err)
+					continue
+				}
+				orderEvents = append(orderEvents, &orderEvent)
+			}
+			if len(orderEvents) > 0 {
+				w.orderEvent.BulkCreate(ctx, orderEvents)
+			}
+			return nil
+		}); err != nil {
+			log.Printf("consumer stopped: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("shutdown")
+
+	return nil
 }

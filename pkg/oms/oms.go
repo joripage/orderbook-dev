@@ -39,7 +39,7 @@ func NewOMS(orderGateway OrderGateway) *OMS {
 		eventstore:       eventstore.NewInMemoryEventStore(),
 		stopCh:           make(chan struct{}),
 	}
-	// go oms.startCleaner(10 * time.Second)
+	go oms.startCleaner(10 * time.Second)
 
 	return oms
 }

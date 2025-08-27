@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joripage/go_util/pkg/shardqueue"
+	kafkawrapper "github.com/joripage/orderbook-dev/pkg/kafka_wrapper"
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
 	"github.com/nats-io/nats.go"
 )
@@ -26,27 +27,38 @@ type InMemoryEventStore struct {
 	sq      *shardqueue.Shardqueue
 	js      nats.JetStreamContext
 	subject string
+
+	//kafka
+	prod *kafkawrapper.Producer
 }
 
 func NewInMemoryEventStore() *InMemoryEventStore {
-	nc, _ := nats.Connect(nats.DefaultURL)
-	js, _ := nc.JetStream(nats.PublishAsyncMaxPending(65536))
-	numShard := 2
-	queueSize := 100000
+	// nc, _ := nats.Connect(nats.DefaultURL)
+	// js, _ := nc.JetStream(nats.PublishAsyncMaxPending(65536))
+	numShard := 1
+	queueSize := 1_000_000
 	sq := shardqueue.NewShardQueue(numShard, queueSize)
+	// Producer
+	prod := kafkawrapper.NewProducer(kafkawrapper.ProducerConfig{
+		Brokers: []string{"localhost:29092"},
+	})
+	// defer prod.Close(context.Background())
+
 	store := &InMemoryEventStore{
 		gatewayIDToOrderID:       make(map[string]string),
 		orderIDToLatestGatewayID: make(map[string]string),
 		gatewayIDToOrigGatewayID: make(map[string]string),
-		js:                       js,
-		subject:                  "ORDERS.*",
-		sq:                       sq,
-		// dispatcher:               make(chan *model.OrderEvent, queueSize),
+		// js:                       js,
+		subject:    "ORDERS.*",
+		sq:         sq,
+		dispatcher: make(chan *model.OrderEvent, queueSize),
+		prod:       prod,
 	}
 	store.sq.Start(func(msg interface{}) error {
 		if v, ok := msg.(*model.OrderEvent); ok {
 			// _ = v
-			store.publish(v)
+			// store.publish(v)
+			store.publishKafka(context.Background(), v)
 		}
 		return nil
 	})
@@ -56,8 +68,15 @@ func NewInMemoryEventStore() *InMemoryEventStore {
 }
 
 func (s *InMemoryEventStore) AddEvent(event *model.OrderEvent) {
+	start := time.Now()
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer func() {
+		s.mu.Unlock()
+		done := time.Since(start)
+		if done > time.Second {
+			fmt.Println("add event in ", done)
+		}
+	}()
 
 	// update store
 	// s.orders[event.OrderID] = append(s.orders[event.OrderID], event)
@@ -67,6 +86,10 @@ func (s *InMemoryEventStore) AddEvent(event *model.OrderEvent) {
 
 	s.sq.Shard(event.OrderID, event)
 	// s.dispatcher <- event
+	// done := time.Since(start)
+	// if done > time.Second {
+	// 	fmt.Println("add event in ", done)
+	// }
 }
 
 // TrackClOrdChain updates the chain between ClOrdID and OrigClOrdID
@@ -124,22 +147,36 @@ func (s *InMemoryEventStore) publish(event *model.OrderEvent) error {
 		log.Println(err)
 		return err
 	}
-	// ackFuture, err := s.js.PublishAsync("ORDERS.events", data)
-	err = publishWithRetry(context.Background(), s.js, "ORDERS.events", data, 5)
+	go func() {
+		// ackFuture, err := s.js.PublishAsync("ORDERS.events", data)
+		err = publishWithRetry(context.Background(), s.js, "ORDERS.events", data, 5)
 
-	// if err != nil {
-	// 	return err
-	// }
+		// if err != nil {
+		// 	return err
+		// }
 
-	// ackFuture.Ok()
+		// ackFuture.Ok()
 
-	return err
+		// return
+	}()
+
+	return nil
+}
+
+func (s *InMemoryEventStore) DeleteChainByOrderID(orderID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	gatewayID := s.orderIDToLatestGatewayID[orderID]
+	delete(s.orderIDToLatestGatewayID, orderID)
+	delete(s.gatewayIDToOrderID, gatewayID)
+
 }
 
 func publishWithRetry(ctx context.Context, js nats.JetStreamContext, subj string, msg []byte, maxRetry int) error {
 	var err error
 	for i := 0; i < maxRetry; i++ {
-		_, err := js.PublishAsync(subj, msg)
+		_, err := js.Publish(subj, msg)
 		if err == nil {
 			return nil
 		}
@@ -156,8 +193,24 @@ func publishWithRetry(ctx context.Context, js nats.JetStreamContext, subj string
 }
 
 func (s *InMemoryEventStore) runDispatcher() {
-	for msg := range s.dispatcher {
-		s.sq.Shard(msg.OrderID, msg)
+
+	for event := range s.dispatcher {
+		start := time.Now()
+		s.mu.Lock()
+		// defer func() {
+		// 	s.mu.Unlock()
+		// 	done := time.Since(start)
+		// 	if done > time.Second {
+		// 		fmt.Println("add event in ", done)
+		// 	}
+		// }()
+		s.TrackClOrdChain(event.OrderID, event.GatewayID, event.OrigGatewayID)
+		s.sq.Shard(event.OrderID, event)
+		s.mu.Unlock()
+		done := time.Since(start)
+		if done > time.Second {
+			fmt.Println("add event in ", done)
+		}
 		// fmt.Println(msg)
 		// return
 	}
@@ -167,4 +220,19 @@ func (s *InMemoryEventStore) runDispatcher() {
 	// 		log.Printf("Shard %d process error: %v", id, err)
 	// 	}
 	// }
+}
+
+func (s *InMemoryEventStore) publishKafka(ctx context.Context, event *model.OrderEvent) error {
+	data, err := json.Marshal(event)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	err = s.prod.Publish(ctx, "ORDERS.events", nil, data, map[string]string{})
+	if err != nil {
+		log.Println("publish error: ", err)
+		return err
+	}
+
+	return nil
 }

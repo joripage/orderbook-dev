@@ -126,16 +126,16 @@ func (s *FixGateway) OnOrderReport(ctx context.Context, args ...interface{}) {
 			log.Printf("match OrderID=%s not found", order.GatewayID)
 			return
 		}
-		// todo: need to review if we need to send via goroutine
-		// go func() {
-		msg := orderReportToExecutionReport(order, sessionID)
-		_ = msg
-		// err = quickfix.SendToTarget(msg, *sessionID)
+
+		s.app.dispatcherOut <- &outboundMsg{
+			order:     order,
+			sessionID: sessionID,
+		}
+
+		// err = orderReportToExecutionReport(order, sessionID)
 		// if err != nil {
 		// 	log.Printf("send err=%v", err)
 		// 	return
 		// }
-		// putExecReport(msg) // trả về pool
-		// }()
 	}
 }

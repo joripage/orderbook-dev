@@ -327,7 +327,7 @@ func sendMessageMatchLimitSoftly44(sessionID quickfix.SessionID) {
 		return
 	}
 	atomic.AddInt32(&sent, 1)
-	total := 5000
+	total := 10_000
 	total = total / 4
 	// total := 1
 
@@ -337,7 +337,7 @@ func sendMessageMatchLimitSoftly44(sessionID quickfix.SessionID) {
 	i := 0
 	for t := range ticker.C {
 		i += 1
-		if i > 120 { // 15 min
+		if i > 600 { // 15 min
 			break
 		}
 		fmt.Printf("sending %d-%d at %s\n", i, total, t.Format("15-04-05"))

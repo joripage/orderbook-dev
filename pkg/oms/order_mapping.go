@@ -1,6 +1,7 @@
 package oms
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/joripage/orderbook-dev/pkg/oms/model"
@@ -39,10 +40,19 @@ func (s *OMS) startCleaner(interval time.Duration) {
 }
 
 func (s *OMS) cleanup() {
+	fmt.Println("clean up")
+	// var stats runtime.MemStats
+	// runtime.ReadMemStats(&stats)
+	// fmt.Printf("HeapObjects: %d, NumGC: %v, LastPause: %vµs\n",
+	// 	stats.HeapObjects,
+	// 	stats.NumGC,
+	// 	stats.PauseNs[(stats.NumGC+255)%256]/1000,
+	// )
 	s.orderIDMapping.Range(func(k, v any) bool {
 		order := v.(*model.Order)
 		if order.IsEnd() {
 			s.DeleteOrderByOrderID(order.OrderID)
+			s.eventstore.DeleteChainByOrderID(order.OrderID)
 		}
 		return true
 	})
